@@ -1,4 +1,4 @@
-import { AUTO_MODEL, FALLBACK_MODELS, providerOf, type AiModel } from "./models";
+import { AUTO_MODEL, EXTRA_MODELS, FALLBACK_MODELS, providerOf, type AiModel } from "./models";
 
 /** OpenRouter's public model catalog, cached in memory for an hour. Server only. */
 
@@ -33,10 +33,14 @@ export async function listModels(): Promise<{ models: AiModel[]; live: boolean }
           .map((m) => ({ id: m.id, name: m.name.replace(/^[^:]+:\s*/, ""), provider: providerOf(m.id) })),
       );
     }
+    for (const extra of EXTRA_MODELS) {
+      const live = json.data.find((m) => m.id === extra.id);
+      models.push(live ? { ...extra, name: live.name.replace(/^[^:]+:\s*/, "") } : extra);
+    }
     cache = { at: Date.now(), models };
     return { models, live: true };
   } catch {
-    return { models: FALLBACK_MODELS, live: false };
+    return { models: [...FALLBACK_MODELS, ...EXTRA_MODELS], live: false };
   }
 }
 

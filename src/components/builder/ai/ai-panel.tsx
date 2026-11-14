@@ -244,7 +244,7 @@ export function AiPanel({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(["auto", "openai", "deepseek", "anthropic"] as AiProvider[]).map((p) =>
+              {(["auto", "openai", "deepseek", "anthropic", "nvidia"] as AiProvider[]).map((p) =>
                 grouped.get(p)?.length ? (
                   <SelectGroup key={p}>
                     {p !== "auto" ? <SelectLabel>{PROVIDER_LABELS[p]}</SelectLabel> : null}

@@ -1,6 +1,6 @@
 /** Model choices for the AI data assistant. All go through OpenRouter. */
 
-export type AiProvider = "auto" | "openai" | "deepseek" | "anthropic";
+export type AiProvider = "auto" | "openai" | "deepseek" | "anthropic" | "nvidia";
 
 export interface AiModel {
   id: string;
@@ -15,6 +15,7 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
   openai: "OpenAI",
   deepseek: "DeepSeek",
   anthropic: "Anthropic",
+  nvidia: "NVIDIA",
 };
 
 /**
@@ -39,9 +40,13 @@ export function providerOf(id: string): AiProvider {
   if (id.startsWith("openai/")) return "openai";
   if (id.startsWith("deepseek/")) return "deepseek";
   if (id.startsWith("anthropic/")) return "anthropic";
+  if (id.startsWith("nvidia/")) return "nvidia";
   return "auto";
 }
 
+/** Individually requested models outside the three main providers, always listed. */
+export const EXTRA_MODELS: AiModel[] = [{ id: "nvidia/nemotron-3-ultra-550b-a55b:free", name: "Nemotron 3 Ultra (free)", provider: "nvidia" }];
+
 export function isAllowedModel(id: string) {
-  return id === AUTO_MODEL.id || /^(openai|deepseek|anthropic)\/[\w.:-]+$/.test(id);
+  return id === AUTO_MODEL.id || EXTRA_MODELS.some((m) => m.id === id) || /^(openai|deepseek|anthropic)\/[\w.:-]+$/.test(id);
 }
