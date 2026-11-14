@@ -52,8 +52,8 @@ export function KpiView({ widget }: { widget: KpiWidget }) {
               <span className="sr-only">{delta > 0 ? "Up" : delta < 0 ? "Down" : "No change"}</span>
               {Math.abs(delta * 100).toFixed(1)}%
             </span>
-            <span className="truncate">
-              {result.currentLabel ? formatBucket(result.currentLabel, "month") : ""} vs prior month
+            <span className="truncate" title={result.currentLabel ? `${formatBucket(result.currentLabel, "month", "long")} compared with ${formatBucket(result.previousLabel ?? "", "month", "long")}` : undefined}>
+              vs {result.previousLabel ? formatBucket(result.previousLabel, "month") : "prior month"}
             </span>
           </p>
         ) : (

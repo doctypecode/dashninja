@@ -76,7 +76,7 @@ const FEATURES = [
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col overflow-x-clip">
       <MarketingNav />
       <main className="flex-1">
         {/* Hero */}

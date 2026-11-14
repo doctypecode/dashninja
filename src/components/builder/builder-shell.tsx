@@ -51,7 +51,6 @@ export type BuilderTab = "design" | "data";
 
 function useBuilderUrl() {
   const params = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const tab: BuilderTab = params.get("tab") === "data" ? "data" : "design";
   const preview = params.get("view") === "preview";
@@ -63,9 +62,11 @@ function useBuilderUrl() {
         if (patch.preview) q.set("view", "preview");
         else q.delete("view");
       }
-      router.replace(`${pathname}?${q.toString()}`, { scroll: false });
+      // Native history updates are synced into useSearchParams without a server round trip,
+      // so switching tabs is instant and never remounts the draft.
+      window.history.replaceState(null, "", `${pathname}?${q.toString()}`);
     },
-    [params, router, pathname],
+    [params, pathname],
   );
   return { tab, preview, set };
 }

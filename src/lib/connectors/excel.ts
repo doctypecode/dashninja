@@ -23,8 +23,8 @@ function normaliseCell(v: unknown): CellValue {
   return String(v);
 }
 
-export async function inspectWorkbook(input: File | ArrayBuffer): Promise<WorkbookInspection> {
-  const buffer = input instanceof ArrayBuffer ? input : await input.arrayBuffer();
+export async function inspectWorkbook(input: File | Blob | ArrayBuffer): Promise<WorkbookInspection> {
+  const buffer = "arrayBuffer" in input && typeof input.arrayBuffer === "function" ? await input.arrayBuffer() : (input as ArrayBuffer);
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
   try {
@@ -121,6 +121,7 @@ export async function buildSampleWorkbook(): Promise<ArrayBuffer> {
   const ws2 = wb.addWorksheet("Targets");
   ws2.addRow(targets.columns.map((c) => c.name));
   for (const r of targets.rows) ws2.addRow(targets.columns.map((c) => r[c.name]));
-  const buf = await wb.xlsx.writeBuffer();
-  return buf as ArrayBuffer;
+  const buf = (await wb.xlsx.writeBuffer()) as unknown as Uint8Array | ArrayBuffer;
+  if (buf instanceof ArrayBuffer) return buf;
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
 }

@@ -84,7 +84,7 @@ export function Pipeline({
   };
 
   return (
-    <div className="grid gap-2">
+    <div className="grid content-start gap-2">
       <div className="flex items-center justify-between">
         <h3 className="text-[13px] font-medium">Transformations</h3>
         <DropdownMenu>

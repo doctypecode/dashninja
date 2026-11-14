@@ -271,7 +271,7 @@ function DatasetPanel({ dataset, onDuplicated, onDeleted }: { dataset: Dataset; 
           </Button>
         </div>
       </div>
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
         <Pipeline dataset={dataset} results={result.steps} sourceColumns={sourceTable.columns} outputColumns={result.table.columns} />
         <div className="grid min-w-0 content-start gap-2">
           <h3 className="text-[13px] font-medium">Preview</h3>
