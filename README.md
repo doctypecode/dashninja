@@ -53,7 +53,7 @@ The chat icon in the builder's right-hand rail opens a chat that reads the dashb
   dataset has the filter's field. Widgets that reference missing columns are skipped and listed, never guessed.
 - **Daily spend limit**: every request records OpenRouter's reported cost (tokens in and out) in `.data/ai-usage.json`
   (gitignored). The chat shows a usage bar with % used, spent, remaining and when it resets (local midnight), plus a
-  per-model breakdown. Requests are refused once the day's limit is reached. The default is \$1, set with
+  per-model breakdown. Requests are refused once the day's limit is reached. The default is $1, set with
   `AI_DAILY_LIMIT_USD`. The check runs before each request, so the last request of a day can go slightly over.
 
 Setup: copy `.env.example` to `.env.local` and set `OPENROUTER_API_KEY`, then restart the server. The key is only
