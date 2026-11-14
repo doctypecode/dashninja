@@ -8,6 +8,8 @@ import { estimateCost, recordUsage, usageSummary } from "@/lib/ai/usage";
 
 const OPENROUTER_URL = `${process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1"}/chat/completions`;
 const MAX_MESSAGES = 20;
+// Free models can be slow; allow up to two minutes on Vercel.
+export const maxDuration = 120;
 const MAX_CONTEXT_CHARS = 60_000;
 
 let guideCache: string | null = null;

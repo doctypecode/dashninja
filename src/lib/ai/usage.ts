@@ -20,7 +20,10 @@ interface DayUsage {
 }
 type Ledger = Record<string, DayUsage>;
 
-const FILE = path.join(process.cwd(), ".data", "ai-usage.json");
+// Vercel's project folder is read-only, so the ledger goes to /tmp there (per instance,
+// cleared on cold starts). Set AI_USAGE_FILE to choose another path.
+const FILE =
+  process.env.AI_USAGE_FILE || (process.env.VERCEL ? path.join("/tmp", "dashninja-ai-usage.json") : path.join(process.cwd(), ".data", "ai-usage.json"));
 const KEEP_DAYS = 31;
 
 export function dailyLimitUsd() {
@@ -69,7 +72,12 @@ export async function recordUsage(entry: { model: string; costUsd: number; promp
   };
   const p = queue.then(run, run);
   queue = p.catch(() => undefined);
-  await p;
+  try {
+    await p;
+  } catch (e) {
+    // Never fail a reply the user already paid for because the ledger couldn't be written.
+    console.error("Couldn't record AI usage:", e);
+  }
 }
 
 export async function usageSummary(): Promise<UsageSummary> {
