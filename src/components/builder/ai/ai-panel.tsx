@@ -208,7 +208,14 @@ export function AiPanel({
       });
       const json = (await res.json().catch(() => ({}))) as Partial<AiChatResponse> & { error?: string; usage?: UsageSummary };
       if (json.usage) qc.setQueryData(USAGE_QUERY_KEY, json.usage);
-      if (!res.ok) throw new Error(json.error ?? `Request failed (${res.status})`);
+      if (!res.ok) {
+        throw new Error(
+          json.error ??
+            (res.status === 504
+              ? "The model took too long and the server timed out. Try again, or ask for a smaller change."
+              : `The server failed without a message (${res.status}). Check the server or Vercel function logs.`),
+        );
+      }
       const parsed = parseReply(json.content ?? "");
       const reply: ChatItem = {
         id: uid("m"),

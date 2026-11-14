@@ -6,7 +6,9 @@ import { autoCandidates } from "@/lib/ai/catalog";
 import type { AiChatRequest, AiChatResponse } from "@/lib/ai/protocol";
 import { estimateCost, recordUsage, usageSummary } from "@/lib/ai/usage";
 
-const OPENROUTER_URL = `${process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1"}/chat/completions`;
+// Ignore a base URL that isn't a URL (for example a key pasted into the wrong variable).
+const BASE = process.env.OPENROUTER_BASE_URL?.trim();
+const OPENROUTER_URL = `${BASE && /^https?:\/\//.test(BASE) ? BASE.replace(/\/+$/, "") : "https://openrouter.ai/api/v1"}/chat/completions`;
 const MAX_MESSAGES = 20;
 // Free models can be slow; allow up to two minutes on Vercel.
 export const maxDuration = 120;
@@ -33,9 +35,20 @@ function error(status: number, message: string, code?: string) {
  * model's reply. The browser parses and validates proposed steps before applying.
  */
 export async function POST(req: Request) {
+  try {
+    return await handle(req);
+  } catch (e) {
+    // Always answer with a readable error instead of an empty 500.
+    console.error("AI chat failed:", e);
+    const detail = e instanceof Error ? e.message : String(e);
+    return error(500, `The assistant hit a server error: ${detail.slice(0, 300)}`, "server_error");
+  }
+}
+
+async function handle(req: Request) {
   // Demo auth: only signed-in builder sessions may spend the API key.
   if (!/(?:^|;\s*)dn_session=[^;]+/.test(req.headers.get("cookie") ?? "")) return error(401, "Sign in to use the AI assistant.", "unauthorized");
-  const key = process.env.OPENROUTER_API_KEY;
+  const key = process.env.OPENROUTER_API_KEY?.trim();
   if (!key) return error(503, "The AI assistant isn't configured. Add OPENROUTER_API_KEY to .env.local and restart the server.", "not_configured");
 
   let body: AiChatRequest;
