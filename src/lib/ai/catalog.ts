@@ -1,4 +1,4 @@
-import { AUTO_MODEL, EXTRA_MODELS, FALLBACK_MODELS, providerOf, type AiModel } from "./models";
+import { AUTO_MODEL, FALLBACK_MODELS, PAID_MODELS, providerOf, type AiModel } from "./models";
 
 /** OpenRouter's public model catalog, cached in memory for an hour. Server only. */
 
@@ -16,6 +16,12 @@ const TTL = 60 * 60 * 1000;
 let cache: { at: number; models: AiModel[] } | null = null;
 
 export async function listModels(): Promise<{ models: AiModel[]; live: boolean }> {
+  // Only the free models in FALLBACK_MODELS are offered for now.
+  return { models: FALLBACK_MODELS, live: true };
+}
+
+/** The full catalog of OpenRouter models per provider. Unused while only free models are offered. */
+export async function listPaidModels(): Promise<{ models: AiModel[]; live: boolean }> {
   if (cache && Date.now() - cache.at < TTL) return { models: cache.models, live: true };
   try {
     const res = await fetch("https://openrouter.ai/api/v1/models", { signal: AbortSignal.timeout(8000) });
@@ -33,14 +39,10 @@ export async function listModels(): Promise<{ models: AiModel[]; live: boolean }
           .map((m) => ({ id: m.id, name: m.name.replace(/^[^:]+:\s*/, ""), provider: providerOf(m.id) })),
       );
     }
-    for (const extra of EXTRA_MODELS) {
-      const live = json.data.find((m) => m.id === extra.id);
-      models.push(live ? { ...extra, name: live.name.replace(/^[^:]+:\s*/, "") } : extra);
-    }
     cache = { at: Date.now(), models };
     return { models, live: true };
   } catch {
-    return { models: [...FALLBACK_MODELS, ...EXTRA_MODELS], live: false };
+    return { models: PAID_MODELS, live: false };
   }
 }
 
@@ -49,7 +51,7 @@ export async function listModels(): Promise<{ models: AiModel[]; live: boolean }
  * OpenRouter falls back between OpenAI, Anthropic and DeepSeek only.
  */
 export async function autoCandidates(): Promise<string[]> {
-  const { models } = await listModels();
+  const { models } = await listPaidModels();
   const pick = (p: (typeof PROVIDERS)[number]) => models.find((m) => m.provider === p)?.id;
   return [pick("anthropic"), pick("openai"), pick("deepseek")].filter((x): x is string => Boolean(x));
 }

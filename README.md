@@ -48,8 +48,8 @@ arrow keys move the selected widget (Shift+arrows resize) · `⌘/Ctrl+D` duplic
 The chat icon in the builder's right-hand rail opens a chat that reads the dashboard's datasets (column names, types and up to
 15 sample rows each) and proposes transformation steps.
 
-- **Models**: OpenAI, DeepSeek and Anthropic models through OpenRouter, plus "Auto", which tries the newest Anthropic, OpenAI and DeepSeek models in turn.
-  The list is fetched live from OpenRouter's public catalog, with a built-in fallback.
+- **Models**: only free models are offered for now (NVIDIA Nemotron 3 Ultra through OpenRouter). The list lives in
+  `FALLBACK_MODELS` in `src/lib/ai/models.ts`, and the server refuses any model not on it.
 - **Plan mode**: proposals show each step with a before/after preview (rows, added and removed columns, errors).
   Nothing changes until you press Apply.
 - **Auto mode**: valid proposals are applied immediately as one undoable change.

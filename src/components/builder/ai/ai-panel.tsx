@@ -144,13 +144,10 @@ export function AiPanel({
   const grouped = React.useMemo(() => {
     const g = new Map<AiProvider, AiModel[]>();
     for (const m of modelList) g.set(m.provider, [...(g.get(m.provider) ?? []), m]);
-    // Keep a saved model selectable even if it fell out of the live list.
-    if (!modelList.some((m) => m.id === prefs.model)) {
-      const p = (prefs.model.split("/")[0] as AiProvider) ?? "auto";
-      g.set(p, [...(g.get(p) ?? []), { id: prefs.model, name: prefs.model, provider: p }]);
-    }
     return g;
-  }, [modelList, prefs.model]);
+  }, [modelList]);
+  // A model saved before the list changed falls back to the default.
+  const model = modelList.some((m) => m.id === prefs.model) ? prefs.model : DEFAULT_MODEL_ID;
 
   // Which dataset the user is looking at: the Data tab's, else the selected widget's, else the first.
   const selectedDatasetId =
@@ -206,7 +203,7 @@ export function AiPanel({
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: prefs.model, mode: prefs.mode, messages, context: buildContext(b.draft, selectedDatasetId, attached) }),
+        body: JSON.stringify({ model, mode: prefs.mode, messages, context: buildContext(b.draft, selectedDatasetId, attached) }),
         signal: controller.signal,
       });
       const json = (await res.json().catch(() => ({}))) as Partial<AiChatResponse> & { error?: string; usage?: UsageSummary };
@@ -255,7 +252,7 @@ export function AiPanel({
       {/* Controls */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-2 border-b border-border px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
-          <Select value={prefs.model} onValueChange={(model) => savePrefs({ ...prefs, model })}>
+          <Select value={model} onValueChange={(model) => savePrefs({ ...prefs, model })}>
             <SelectTrigger size="sm" className="h-7 min-w-0 flex-1 text-xs" aria-label="Model">
               <SelectValue />
             </SelectTrigger>

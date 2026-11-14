@@ -18,12 +18,8 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
   nvidia: "NVIDIA",
 };
 
-/**
- * Used when the live OpenRouter model list can't be fetched. The server
- * replaces this with the newest models per provider when it can reach
- * openrouter.ai/api/v1/models.
- */
-export const FALLBACK_MODELS: AiModel[] = [
+/** Paid models, no longer offered in the picker. Kept for reference if they come back. */
+export const PAID_MODELS: AiModel[] = [
   AUTO_MODEL,
   { id: "openai/gpt-4.1", name: "GPT-4.1", provider: "openai" },
   { id: "openai/gpt-4.1-mini", name: "GPT-4.1 mini", provider: "openai" },
@@ -34,7 +30,6 @@ export const FALLBACK_MODELS: AiModel[] = [
   { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku", provider: "anthropic" },
 ];
 
-export const DEFAULT_MODEL_ID = AUTO_MODEL.id;
 
 export function providerOf(id: string): AiProvider {
   if (id.startsWith("openai/")) return "openai";
@@ -44,9 +39,12 @@ export function providerOf(id: string): AiProvider {
   return "auto";
 }
 
-/** Individually requested models outside the three main providers, always listed. */
-export const EXTRA_MODELS: AiModel[] = [{ id: "nvidia/nemotron-3-ultra-550b-a55b:free", name: "Nemotron 3 Ultra (free)", provider: "nvidia" }];
+/** The models the assistant offers. Only free models for now. */
+export const FALLBACK_MODELS: AiModel[] = [{ id: "nvidia/nemotron-3-ultra-550b-a55b:free", name: "Nemotron 3 Ultra", provider: "nvidia" }];
 
+export const DEFAULT_MODEL_ID = FALLBACK_MODELS[0].id;
+
+/** The server only calls models from the list above. */
 export function isAllowedModel(id: string) {
-  return id === AUTO_MODEL.id || EXTRA_MODELS.some((m) => m.id === id) || /^(openai|deepseek|anthropic)\/[\w.:-]+$/.test(id);
+  return FALLBACK_MODELS.some((m) => m.id === id);
 }

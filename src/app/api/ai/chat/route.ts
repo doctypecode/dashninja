@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   } catch {
     return error(400, "Invalid request body.");
   }
-  if (!body?.model || !isAllowedModel(body.model)) return error(400, "Pick an OpenAI, DeepSeek or Anthropic model, or Auto.");
+  if (!body?.model || !isAllowedModel(body.model)) return error(400, "That model isn't available. Pick one from the list.");
   if (!Array.isArray(body.messages) || !body.messages.length) return error(400, "Send at least one message.");
 
   const before = await usageSummary();
