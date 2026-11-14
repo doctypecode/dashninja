@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { AlertTriangleIcon, CopyIcon, DatabaseIcon, PlusIcon, Trash2Icon, WrenchIcon } from "lucide-react";
+import { AlertTriangleIcon, CopyIcon, DatabaseIcon, InfoIcon, PlusIcon, Trash2Icon, WorkflowIcon, WrenchIcon } from "lucide-react";
 import type { Dataset } from "@/lib/model/types";
 import { useBuilder } from "@/lib/builder/store";
 import { addDataset, removeDataset, updateDataset, widgetsUsingDataset } from "@/lib/builder/data-actions";
@@ -16,12 +16,28 @@ import { WIDGET_LABELS } from "@/lib/model/defaults";
 import { AddSourceDialog } from "./add-source-dialog";
 import { SourceDetails, StatusBadge } from "./source-details";
 import { SourceIcon } from "./source-icon";
-import { TransformWorkspace } from "./transform-rail";
+import { TransformationsPanel } from "./transformations-panel";
+import { SOURCE_KIND_LABELS } from "@/lib/connectors";
+import { relativeTime } from "@/lib/format";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import type { RightPanel } from "../design/design-tab";
 import { DataPreview } from "./data-preview";
 
 type Kind = "csv" | "excel" | "google-sheets" | "sample";
 
-export function DataTab({ onRepair, onFocusDataset }: { onRepair: (widgetId: string) => void; onFocusDataset?: (id: string | null) => void }) {
+export function DataTab({
+  onRepair,
+  onFocusDataset,
+  panel,
+  onPanelChange,
+}: {
+  onRepair: (widgetId: string) => void;
+  onFocusDataset?: (id: string | null) => void;
+  panel: RightPanel;
+  onPanelChange: (p: RightPanel) => void;
+}) {
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
   const b = useBuilder();
   const { issues } = useRuntime();
   const sources = b.draft.sources;
@@ -33,6 +49,21 @@ export function DataTab({ onRepair, onFocusDataset }: { onRepair: (widgetId: str
   const datasets = b.draft.datasets.filter((d) => d.sourceId === source?.id);
   const dataset = datasets.find((d) => d.id === datasetId) ?? datasets[0] ?? null;
   const focusedId = dataset?.id ?? null;
+  const result = dataset ? resolveDataset(b.draft, dataset) : null;
+  const sourceTable = source ? getSourceTable(b.draft, source) : null;
+  const panelContent =
+    panel === "transformations" && dataset && result && sourceTable ? (
+      <TransformationsPanel
+        key={dataset.id}
+        dataset={dataset}
+        results={result.steps}
+        sourceColumns={sourceTable.columns}
+        outputColumns={result.table.columns}
+        onClose={() => onPanelChange(null)}
+      />
+    ) : panel === "source" && source ? (
+      <SourceDetails key={source.id} source={source} onRemoved={() => setSourceId(null)} onClose={() => onPanelChange(null)} />
+    ) : null;
   React.useEffect(() => onFocusDataset?.(focusedId), [focusedId, onFocusDataset]);
 
   // Tell the user when a data change breaks a binding, with a one-click undo.
@@ -58,11 +89,13 @@ export function DataTab({ onRepair, onFocusDataset }: { onRepair: (widgetId: str
   }, [issues]);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1400px] gap-6 px-4 py-6 sm:px-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Data</h1>
-          <p className="text-sm text-muted-foreground">Where each dataset comes from and how it is prepared. Design decides how widgets use it.</p>
+    <div className="flex min-h-0 flex-1">
+    <div className="min-w-0 flex-1 overflow-y-auto">
+    <div className="grid w-full gap-4 px-4 py-5 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-base font-semibold tracking-tight">Data</h1>
+          <p className="text-xs text-muted-foreground">Where each dataset comes from and how it is prepared. Design decides how widgets use it.</p>
         </div>
         <Button size="sm" onClick={() => openDialog()}>
           <PlusIcon /> Add source
@@ -116,7 +149,7 @@ export function DataTab({ onRepair, onFocusDataset }: { onRepair: (widgetId: str
                     setDatasetId(null);
                   }}
                   className={cn(
-                    "flex min-w-52 shrink-0 items-center gap-2.5 rounded-lg border bg-surface px-3 py-2 text-left shadow-surface transition-[border-color,box-shadow] duration-150",
+                    "flex min-w-44 shrink-0 items-center gap-2 rounded-md border bg-surface px-2.5 py-1.5 text-left transition-[border-color,box-shadow] duration-150",
                     active ? "border-primary ring-1 ring-primary" : "border-border hover:border-border-strong",
                   )}
                 >
@@ -134,20 +167,20 @@ export function DataTab({ onRepair, onFocusDataset }: { onRepair: (widgetId: str
             <button
               type="button"
               onClick={() => openDialog()}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-border-strong px-3 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex shrink-0 items-center gap-1.5 rounded-md border border-dashed border-border-strong px-2.5 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <PlusIcon className="size-4" /> Add source
             </button>
           </div>
 
-          {source ? <SourceDetails key={source.id} source={source} onRemoved={() => setSourceId(null)} /> : null}
+          {source ? <SourceSummary source={source} active={panel === "source"} onOpen={() => onPanelChange(panel === "source" && isDesktop ? null : "source")} /> : null}
 
           {/* Datasets */}
           {source ? (
-            <section aria-labelledby="datasets-heading" className="grid gap-3">
+            <section aria-labelledby="datasets-heading" className="grid gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 id="datasets-heading" className="mr-2 text-sm font-medium">
-                  Datasets from this source
+                <h2 id="datasets-heading" className="mr-1 text-xs font-medium text-muted-foreground">
+                  Datasets
                 </h2>
                 <div role="tablist" aria-label="Datasets" className="flex flex-wrap gap-1">
                   {datasets.map((d) => (
@@ -179,7 +212,14 @@ export function DataTab({ onRepair, onFocusDataset }: { onRepair: (widgetId: str
                 </Button>
               </div>
               {dataset ? (
-                <DatasetPanel key={dataset.id} dataset={dataset} onDuplicated={setDatasetId} onDeleted={() => setDatasetId(null)} />
+                <DatasetPanel
+                  key={dataset.id}
+                  dataset={dataset}
+                  onDuplicated={setDatasetId}
+                  onDeleted={() => setDatasetId(null)}
+                  transformationsOpen={panel === "transformations"}
+                  onOpenTransformations={() => onPanelChange(panel === "transformations" && isDesktop ? null : "transformations")}
+                />
               ) : (
                 <div className="rounded-xl border border-dashed border-border-strong p-8 text-center text-sm text-muted-foreground">
                   No datasets use this source yet. Create one to make its data available in Design.
@@ -201,14 +241,69 @@ export function DataTab({ onRepair, onFocusDataset }: { onRepair: (widgetId: str
         }}
       />
     </div>
+    </div>
+
+    {isDesktop && panelContent ? (
+      <aside
+        aria-label={panel === "source" ? "Source details" : "Transformations"}
+        className="w-[360px] shrink-0 overflow-y-auto border-l border-border bg-surface animate-in slide-in-from-right-2 fade-in-0 duration-200 xl:w-[380px]"
+      >
+        {panelContent}
+      </aside>
+    ) : null}
+    {!isDesktop ? (
+      <Sheet open={Boolean(panelContent)} onOpenChange={(o) => !o && onPanelChange(null)}>
+        <SheetContent side="right" className="w-[min(100vw,400px)] p-0 [&>button:last-child]:hidden">
+          <SheetTitle className="sr-only">{panel === "source" ? "Source details" : "Transformations"}</SheetTitle>
+          <SheetDescription className="sr-only">Data tab panel</SheetDescription>
+          <div className="min-h-0 flex-1 overflow-y-auto">{panelContent}</div>
+        </SheetContent>
+      </Sheet>
+    ) : null}
+    </div>
   );
 }
 
-function DatasetPanel({ dataset, onDuplicated, onDeleted }: { dataset: Dataset; onDuplicated: (id: string) => void; onDeleted: () => void }) {
+function SourceSummary({ source, active, onOpen }: { source: import("@/lib/model/types").DataSource; active: boolean; onOpen: () => void }) {
+  const c = source.config;
+  const detail =
+    c.kind === "csv" || c.kind === "excel" ? c.fileName : c.kind === "google-sheets" ? [c.spreadsheetName, c.worksheet].filter(Boolean).join(" › ") : "Sample";
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-surface px-3 py-1.5 text-xs">
+      <SourceIcon kind={source.kind} className="size-3.5 text-muted-foreground" />
+      <span className="font-medium">{source.name}</span>
+      <StatusBadge status={source.status} />
+      <span className="text-muted-foreground">
+        {SOURCE_KIND_LABELS[source.kind]}
+        {detail && detail !== source.name && detail !== SOURCE_KIND_LABELS[source.kind] ? ` · ${detail}` : ""}
+      </span>
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {source.rowCount.toLocaleString("en-US")} rows · {source.columnCount} cols
+      </span>
+      <span className="text-muted-foreground">Refreshed {relativeTime(source.lastRefreshedAt)}</span>
+      {source.error && source.status !== "ready" ? <span className="text-destructive">{source.error.message}</span> : null}
+      <Button size="xs" variant={active ? "secondary" : "ghost"} className="ml-auto" onClick={onOpen} aria-pressed={active}>
+        <InfoIcon /> Source details
+      </Button>
+    </div>
+  );
+}
+
+function DatasetPanel({
+  dataset,
+  onDuplicated,
+  onDeleted,
+  transformationsOpen,
+  onOpenTransformations,
+}: {
+  dataset: Dataset;
+  onDuplicated: (id: string) => void;
+  onDeleted: () => void;
+  transformationsOpen: boolean;
+  onOpenTransformations: () => void;
+}) {
   const b = useBuilder();
-  const source = b.draft.sources.find((s) => s.id === dataset.sourceId)!;
   const result = resolveDataset(b.draft, dataset);
-  const sourceTable = getSourceTable(b.draft, source);
   const usedBy = widgetsUsingDataset(b.draft, dataset.id);
   const [name, setName] = React.useState(dataset.name);
   React.useEffect(() => {
@@ -221,7 +316,7 @@ function DatasetPanel({ dataset, onDuplicated, onDeleted }: { dataset: Dataset; 
   const errors = result.steps.filter((s) => s.status === "error").length;
 
   return (
-    <div className="grid gap-4 rounded-xl border border-border bg-surface p-4 shadow-surface">
+    <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="grid gap-1">
           <Input
@@ -247,6 +342,9 @@ function DatasetPanel({ dataset, onDuplicated, onDeleted }: { dataset: Dataset; 
             <AlertTriangleIcon className="size-3.5" aria-hidden /> {errors} step{errors > 1 ? "s" : ""} skipped
           </span>
         ) : null}
+        <Button size="xs" variant={transformationsOpen ? "secondary" : "outline"} onClick={onOpenTransformations} aria-pressed={transformationsOpen}>
+          <WorkflowIcon /> {dataset.steps.length} transformation{dataset.steps.length === 1 ? "" : "s"}
+        </Button>
         <div className="ml-auto flex gap-1">
           <Button
             size="xs"
@@ -273,10 +371,7 @@ function DatasetPanel({ dataset, onDuplicated, onDeleted }: { dataset: Dataset; 
           </Button>
         </div>
       </div>
-      <TransformWorkspace dataset={dataset} results={result.steps} sourceColumns={sourceTable.columns} outputColumns={result.table.columns}>
-        <h3 className="text-[13px] font-medium">Preview</h3>
-        <DataPreview table={result.table} />
-      </TransformWorkspace>
+      <DataPreview table={result.table} />
     </div>
   );
 }

@@ -48,7 +48,7 @@ import { SaveStatusIndicator } from "./save-status";
 import { DesignTab, type RightPanel } from "./design/design-tab";
 import { BuilderRail } from "./builder-rail";
 import { DataTab } from "./data/data-tab";
-import { AiPanel } from "./ai/ai-panel";
+import { AiPanel, type ChatItem } from "./ai/ai-panel";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/lib/use-media-query";
 
@@ -85,11 +85,22 @@ export function BuilderShell() {
   const [visited, setVisited] = React.useState<Record<BuilderTab, boolean>>({ design: tab === "design", data: tab === "data" });
   const [simulateFailure, setSimulateFailure] = React.useState(false);
   // Right rail: one panel at a time. Settings belongs to Design; chat works in both tabs.
-  const [rightPanel, setRightPanel] = React.useState<RightPanel>("settings");
+  // Each tab remembers its own panel: Design defaults to settings, Data to transformations.
+  const [panels, setPanels] = React.useState<Record<BuilderTab, RightPanel>>({ design: "settings", data: "transformations" });
   const [dataFocus, setDataFocus] = React.useState<string | null>(null);
+  const [chatItems, setChatItems] = React.useState<ChatItem[]>([]);
   const isDesktop = useMediaQuery("(min-width: 1024px)");
+  React.useEffect(() => {
+    // Phones and tablets start with panels closed; they open as sheets on demand.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time viewport adjustment
+    if (!isDesktop) setPanels({ design: null, data: null });
+  }, [isDesktop]);
+  const rightPanel = panels[tab];
+  const setDesignPanel = React.useCallback((p: RightPanel) => setPanels((x) => ({ ...x, design: p })), []);
+  const setDataPanel = React.useCallback((p: RightPanel) => setPanels((x) => ({ ...x, data: p })), []);
+  const setRightPanel = (p: RightPanel) => (tab === "design" ? setDesignPanel(p) : setDataPanel(p));
   const aiOpen = rightPanel === "chat";
-  const setAiOpen = (open: boolean) => setRightPanel(open ? "chat" : tab === "design" ? "settings" : null);
+  const setAiOpen = (open: boolean) => setRightPanel(open ? "chat" : null);
 
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read a demo-only toggle from storage after mount
@@ -199,10 +210,10 @@ export function BuilderShell() {
           ) : (
             <div role="tablist" aria-label="Builder" className="inline-flex h-8 items-center gap-0.5 rounded-md border border-border bg-muted p-0.5">
               <TabButton active={tab === "design"} onClick={() => set({ tab: "design" })} controls="panel-design" shortcut="Alt 1">
-                <LayoutTemplateIcon /> Design
+                <LayoutTemplateIcon /> <span className="sr-only sm:not-sr-only">Design</span>
               </TabButton>
               <TabButton active={tab === "data"} onClick={() => set({ tab: "data" })} controls="panel-data" shortcut="Alt 2">
-                <DatabaseIcon /> Data
+                <DatabaseIcon /> <span className="sr-only sm:not-sr-only">Data</span>
                 <IssueDot />
               </TabButton>
             </div>
@@ -266,15 +277,15 @@ export function BuilderShell() {
           <div className="flex min-h-0 flex-1">
             <div className="flex min-w-0 flex-1 flex-col">
               <div id="panel-design" role="tabpanel" aria-label="Design" hidden={tab !== "design"} className={cn("min-h-0 flex-1", tab === "design" ? "flex flex-col" : "hidden")}>
-                {visited.design ? <DesignTab active={tab === "design"} panel={rightPanel} onPanelChange={setRightPanel} /> : null}
+                {visited.design ? <DesignTab active={tab === "design"} panel={panels.design} onPanelChange={setDesignPanel} /> : null}
               </div>
-              <div id="panel-data" role="tabpanel" aria-label="Data" hidden={tab !== "data"} className={cn("min-h-0 flex-1 overflow-y-auto", tab !== "data" && "hidden")}>
-                {visited.data ? <DataTab onRepair={repair} onFocusDataset={setDataFocus} /> : null}
+              <div id="panel-data" role="tabpanel" aria-label="Data" hidden={tab !== "data"} className={cn("min-h-0 flex-1", tab === "data" ? "flex flex-col" : "hidden")}>
+                {visited.data ? <DataTab onRepair={repair} onFocusDataset={setDataFocus} panel={panels.data} onPanelChange={setDataPanel} /> : null}
               </div>
             </div>
             {aiOpen && isDesktop ? (
               <aside aria-label="Data assistant" className="w-[360px] shrink-0 border-l border-border animate-fade-in xl:w-[380px]">
-                <AiPanel onClose={() => setRightPanel(null)} focusDatasetId={tab === "data" ? dataFocus : null} />
+                <AiPanel onClose={() => setRightPanel(null)} focusDatasetId={tab === "data" ? dataFocus : null} items={chatItems} setItems={setChatItems} />
               </aside>
             ) : null}
             {isDesktop ? <BuilderRail tab={tab} panel={rightPanel} onPanelChange={setRightPanel} /> : null}
@@ -287,7 +298,7 @@ export function BuilderShell() {
           <SheetContent side="right" className="w-[min(100vw,400px)] [&>button:last-child]:hidden">
             <SheetTitle className="sr-only">Data assistant</SheetTitle>
             <SheetDescription className="sr-only">Ask for transformations in plain language.</SheetDescription>
-            <AiPanel onClose={() => setAiOpen(false)} focusDatasetId={tab === "data" ? dataFocus : null} />
+            <AiPanel onClose={() => setAiOpen(false)} focusDatasetId={tab === "data" ? dataFocus : null} items={chatItems} setItems={setChatItems} />
           </SheetContent>
         </Sheet>
       ) : null}

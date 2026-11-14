@@ -106,7 +106,7 @@ function brokenBindings(d: Dashboard, ev: EvaluatedAction) {
 
 type ProposalState = "pending" | "applied" | "discarded";
 
-interface ChatItem {
+export interface ChatItem {
   id: string;
   role: "user" | "assistant" | "error";
   content: string;
@@ -134,9 +134,19 @@ const SUGGESTIONS = [
   "Which columns have empty values?",
 ];
 
-export function AiPanel({ onClose, focusDatasetId }: { onClose: () => void; focusDatasetId?: string | null }) {
+export function AiPanel({
+  onClose,
+  focusDatasetId,
+  items,
+  setItems,
+}: {
+  onClose: () => void;
+  focusDatasetId?: string | null;
+  /** Owned by the builder so the conversation survives closing the panel or switching tabs. */
+  items: ChatItem[];
+  setItems: React.Dispatch<React.SetStateAction<ChatItem[]>>;
+}) {
   const b = useBuilder();
-  const [items, setItems] = React.useState<ChatItem[]>([]);
   const [input, setInput] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [prefs, setPrefs] = React.useState<{ model: string; mode: AiMode }>({ model: DEFAULT_MODEL_ID, mode: "plan" });
@@ -218,7 +228,7 @@ export function AiPanel({ onClose, focusDatasetId }: { onClose: () => void; focu
       });
       return true;
     },
-    [b],
+    [b, setItems],
   );
 
   const send = async (text: string) => {

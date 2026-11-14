@@ -30,7 +30,7 @@ function useIsDesktop() {
   return useMediaQuery("(min-width: 1024px)");
 }
 
-export type RightPanel = "settings" | "chat" | null;
+export type RightPanel = "settings" | "transformations" | "source" | "chat" | null;
 
 export function DesignTab({ active, panel, onPanelChange }: { active: boolean; panel: RightPanel; onPanelChange: (p: RightPanel) => void }) {
   const b = useBuilder();

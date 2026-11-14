@@ -13,6 +13,7 @@ import {
   Trash2Icon,
   UploadIcon,
   WifiOffIcon,
+  XIcon,
 } from "lucide-react";
 import type { CsvConfig, DataSource, ExcelConfig, GoogleSheetsConfig } from "@/lib/model/types";
 import { ConnectorError, csvConnector, extractTable, inspectWorkbook, SOURCE_KIND_LABELS } from "@/lib/connectors";
@@ -89,7 +90,7 @@ function Stat({ label, value, mono = true }: { label: string; value: React.React
   );
 }
 
-export function SourceDetails({ source, onRemoved }: { source: DataSource; onRemoved: () => void }) {
+export function SourceDetails({ source, onRemoved, onClose }: { source: DataSource; onRemoved: () => void; onClose?: () => void }) {
   const b = useBuilder();
   const google = useGoogleConnection();
   const [busy, setBusy] = React.useState(false);
@@ -183,8 +184,16 @@ export function SourceDetails({ source, onRemoved }: { source: DataSource; onRem
   const isFile = c.kind === "csv" || c.kind === "excel";
 
   return (
-    <section aria-labelledby="source-title" className="rounded-xl border border-border bg-surface shadow-surface">
-      <div className="flex flex-wrap items-start gap-3 border-b border-border p-4">
+    <section aria-labelledby="source-title" className="bg-surface">
+      {onClose ? (
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-surface px-3 py-2.5">
+          <h2 className="flex-1 text-[13px] font-medium">Source details</h2>
+          <Button variant="ghost" size="icon-xs" onClick={onClose} aria-label="Close source details">
+            <XIcon />
+          </Button>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-start gap-2.5 border-b border-border p-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-background">
           <SourceIcon kind={source.kind} className="size-4" />
         </span>
@@ -206,7 +215,7 @@ export function SourceDetails({ source, onRemoved }: { source: DataSource; onRem
             {c.kind === "google-sheets" ? ` · ${c.spreadsheetName} › ${c.worksheet}${c.range ? ` › ${c.range}` : ""}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex w-full items-center gap-1.5 pl-11">
           {c.kind === "google-sheets" ? (
             source.status === "needs-auth" || source.status === "disconnected" ? (
               <Button
@@ -250,7 +259,7 @@ export function SourceDetails({ source, onRemoved }: { source: DataSource; onRem
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="icon-sm" variant="ghost" aria-label="More source actions">
+              <Button size="icon-sm" variant="ghost" className="ml-auto" aria-label="More source actions">
                 <ChevronDownIcon />
               </Button>
             </DropdownMenuTrigger>
@@ -276,15 +285,15 @@ export function SourceDetails({ source, onRemoved }: { source: DataSource; onRem
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-4 border-b border-border p-4 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-3 border-b border-border p-3">
         <Stat label="Rows" value={source.rowCount.toLocaleString()} />
         <Stat label="Columns" value={source.columnCount} />
-        <Stat label="Last successful refresh" value={relativeTime(source.lastRefreshedAt)} mono={false} />
+        <Stat label="Last refreshed" value={relativeTime(source.lastRefreshedAt)} mono={false} />
         <Stat label="Datasets" value={affectedDatasets.length} />
       </dl>
 
       {source.error && source.status !== "ready" ? (
-        <div role="alert" className="m-4 rounded-md border border-destructive/30 bg-destructive-muted p-3 text-[13px]">
+        <div role="alert" className="m-3 rounded-md border border-destructive/30 bg-destructive-muted p-3 text-[13px]">
           <p className="flex items-center gap-1.5 font-medium text-destructive">
             <AlertTriangleIcon className="size-4" aria-hidden /> {source.error.message}
           </p>
@@ -294,7 +303,7 @@ export function SourceDetails({ source, onRemoved }: { source: DataSource; onRem
       ) : null}
 
       {source.warnings?.length ? (
-        <details className="mx-4 mt-4 rounded-md border border-warning/30 bg-warning-muted px-3 py-2 text-xs">
+        <details className="mx-3 mt-3 rounded-md border border-warning/30 bg-warning-muted px-3 py-2 text-xs">
           <summary className="cursor-pointer font-medium text-warning">
             {source.warnings.length} import warning{source.warnings.length > 1 ? "s" : ""}
           </summary>
@@ -308,10 +317,10 @@ export function SourceDetails({ source, onRemoved }: { source: DataSource; onRem
 
       {/* Import / connection settings */}
       {c.kind !== "sample" ? (
-        <div className="grid gap-3 p-4">
+        <div className="grid gap-3 p-3">
           <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{c.kind === "google-sheets" ? "Connection" : "Import settings"}</h3>
           {c.kind === "csv" ? (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3">
               <Row label="Delimiter">
                 <SimpleSelect
                   value={c.delimiter}
@@ -332,10 +341,10 @@ export function SourceDetails({ source, onRemoved }: { source: DataSource; onRem
                   First row is a header
                 </div>
               </Row>
-              {cache?.kind !== "csv" ? <p className="self-end text-[11px] text-muted-foreground sm:col-span-3">Replace the file to change parse settings — the original file isn’t kept after reload.</p> : null}
+              {cache?.kind !== "csv" ? <p className="self-end text-[11px] text-muted-foreground">Replace the file to change parse settings — the original file isn’t kept after reload.</p> : null}
             </div>
           ) : c.kind === "excel" ? (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3">
               <Row label="Worksheet">
                 <SimpleSelect
                   value={c.sheet}
@@ -350,11 +359,11 @@ export function SourceDetails({ source, onRemoved }: { source: DataSource; onRem
               <Row label="Range">
                 <Input className="h-8 font-mono text-xs uppercase" placeholder="Whole sheet" value={c.range} disabled={cache?.kind !== "excel"} onChange={(e) => applyExcel({ range: e.target.value })} />
               </Row>
-              {cache?.kind !== "excel" ? <p className="text-[11px] text-muted-foreground sm:col-span-3">Replace the file to change worksheet or range — the workbook isn’t kept after reload.</p> : null}
+              {cache?.kind !== "excel" ? <p className="text-[11px] text-muted-foreground">Replace the file to change worksheet or range — the workbook isn’t kept after reload.</p> : null}
             </div>
           ) : (
             <div className="grid gap-3">
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3">
                 <Row label="Account">
                   <p className="flex h-8 items-center gap-1.5 text-[13px]">
                     <span className={`size-2 rounded-full ${google.state.status === "connected" ? "bg-success" : google.state.status === "expired" ? "bg-warning" : "bg-muted-foreground"}`} aria-hidden />
