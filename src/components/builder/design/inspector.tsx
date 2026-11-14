@@ -40,7 +40,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { FieldSelect, Row, Section, Segmented, SimpleSelect, SwitchRow } from "./inspector-fields";
+import { FieldListEditor, FieldSelect, Row, Section, Segmented, SimpleSelect, SwitchRow } from "./inspector-fields";
 import { WIDGET_ICONS } from "./widget-palette";
 
 export function Inspector({ onClose }: { onClose: () => void }) {
@@ -441,6 +441,31 @@ function BindingSection({ widget }: { widget: DataWidget }) {
                     <Row label="Split into series" hint={b.measures.length > 1 ? "Available with a single measure." : "One line or bar color per category."}>
                       <FieldSelect value={b.series} onChange={(v) => setBinding({ series: v })} columns={columns} allow={["string", "boolean"]} allowNone noneLabel="No split" disabled={b.measures.length > 1} />
                     </Row>
+                  ) : null}
+                  {widget.type !== "table" && b.dimension ? (
+                    <>
+                      <Row label="Viewer can switch to" hint="Adds a toggle on the chart, for example Month, Category, Region.">
+                        <FieldListEditor
+                          label="Alternate X-axis fields"
+                          fields={b.views ?? []}
+                          columns={columns}
+                          exclude={[b.dimension]}
+                          onChange={(views) => setBinding({ views })}
+                          addLabel="Add a toggle option"
+                        />
+                      </Row>
+                      <Row label="Drill-down path" hint={`Clicking a ${widget.type === "bar" ? "bar" : "point"} filters to it and shows the next level. Starts from ${b.dimension}.`}>
+                        <FieldListEditor
+                          label="Drill-down levels"
+                          fields={b.drill ?? []}
+                          columns={columns}
+                          exclude={[b.dimension]}
+                          onChange={(drill) => setBinding({ drill })}
+                          addLabel="Add a drill level"
+                          ordered
+                        />
+                      </Row>
+                    </>
                   ) : null}
                   <Row label="Sort">
                     <div className="grid grid-cols-2 gap-1.5">

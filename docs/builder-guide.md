@@ -72,6 +72,8 @@ A data widget's binding (`DataBinding`) holds:
 - `dimension`: the grouping column (x-axis for charts, row group for tables), with `dateGrain` when it is a date.
 - `measures`: `{ field, agg }` pairs, such as `SUM(revenue)`.
 - `series`: optional column that splits a chart into series.
+- `views`: optional extra columns the viewer can switch the chart's grouping to (line and bar), shown as a toggle on the card.
+- `drill`: optional ordered columns for click-to-drill (line and bar). Clicking a bar or point filters to it and regroups by the next column; a breadcrumb goes back up.
 - `columns`: raw columns for an ungrouped table.
 - `sort`, `limit`, and `filterIds` (dashboard filters that apply).
 
@@ -159,6 +161,8 @@ Widget fields:
 | `dimension` | line, bar, table | Grouping column. Line charts should use a date column. |
 | `dateGrain` | when dimension is a date | `day`, `week`, `month`, `quarter` or `year`. |
 | `series` | line, bar | Optional column that splits into multiple lines or bars. |
+| `views` | line, bar | Extra grouping columns the viewer can toggle to, such as `["category", "region"]` for a revenue-by-month chart. The `dimension` is always the first view. |
+| `drill` | line, bar | Ordered drill-down path below `dimension`, such as `["channel", "product"]` under `region`. Use columns with a natural hierarchy. |
 | `columns` | table | Raw columns for an ungrouped table (omit dimension and measures). |
 | `sort`, `limit` | line, bar, table | `{ by: "dimension" or "measure", direction: "asc" or "desc" }`; `limit` keeps the top N groups. |
 | `format` | kpi, line, bar, table | `number`, `compact`, `currency` or `percent`. One format applies to every measure in the widget, so keep money and counts in separate widgets, or use `number` for a table that mixes them. |
@@ -166,6 +170,23 @@ Widget fields:
 | `field`, `control`, `defaultRange` | filter | Column to filter by; `select` for categories or `date_range` for dates; `defaultRange` is `all`, `last_3_months`, `last_6_months`, `last_12_months` or `ytd`. |
 | `content`, `size` | text | Text to show; size `sm`, `md`, `lg` or `xl`. |
 | `width`, `height` | all | Grid size. The grid is 12 columns wide; one row is about 32px. Typical: KPI 3×4, line 8×9, bar 4×9 or 6×9, table 6×9 or 12×9, filter 3×2, heading text 12×2. |
+
+Changing or removing existing widgets:
+
+```json
+{ "type": "update_widget", "id": "w_abc123", "views": ["category", "region"], "drill": ["channel", "product"] },
+{ "type": "update_widget", "id": "Revenue by region", "widget": "line", "title": "Revenue trend", "dimension": "order_date", "dateGrain": "month" },
+{ "type": "remove_widget", "id": "w_def456" }
+```
+
+- `update_widget` takes the widget's `id` (or its exact title) plus only the fields that change, using the same names as `add_widget`.
+  Fields you leave out keep their current values. The widget keeps its place on the canvas unless you give `width` or `height`.
+- `remove_widget` takes the widget's `id` or exact title.
+- The context's `widgets` list holds every widget's id, type, title, dataset and fields. `attachedWidgets` holds the full spec of
+  widgets the user attached to their message from the canvas. When widgets are attached, the message is about them:
+  prefer `update_widget` on those widgets over adding new ones, unless the user asks for something new.
+- Good toggles: a time chart can switch to category or region; a category chart can switch to another category column.
+  Good drill paths go from broad to narrow, such as region, then channel, then product.
 
 Layout tips: put filters first, then a row of three or four KPIs (widths adding to 12), then the main trend chart (8 wide)
 next to a 4-wide breakdown, then tables. Order the actions in that reading order, because widgets are placed in order.

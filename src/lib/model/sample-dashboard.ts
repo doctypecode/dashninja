@@ -151,6 +151,8 @@ export function sampleWidgets(): Widget[] {
         measures: [{ field: "revenue", agg: "sum", label: "Revenue" }],
         sort: { by: "measure", direction: "desc" },
         filterIds: filters,
+        views: ["category", "channel"],
+        drill: ["channel", "product"],
       },
       format: compactCurrency,
       dateFormat: { style: "auto" },

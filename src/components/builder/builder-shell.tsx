@@ -89,6 +89,8 @@ export function BuilderShell() {
   const [panels, setPanels] = React.useState<Record<BuilderTab, RightPanel>>({ design: "settings", data: "transformations" });
   const [dataFocus, setDataFocus] = React.useState<string | null>(null);
   const [chatItems, setChatItems] = React.useState<ChatItem[]>([]);
+  // Widgets attached to the next chat message from the canvas "Ask AI" button.
+  const [attachedWidgetIds, setAttachedWidgetIds] = React.useState<string[]>([]);
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   React.useEffect(() => {
     // Phones and tablets start with panels closed; they open as sheets on demand.
@@ -106,6 +108,11 @@ export function BuilderShell() {
     set({ tab: "design" });
   }, [set]);
   const setAiOpen = (open: boolean) => setRightPanel(open ? "chat" : null);
+  // Canvas card chat icon: open the chat beside Design with this widget in context.
+  const askAiAbout = React.useCallback((id: string) => {
+    setAttachedWidgetIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+    setPanels((x) => ({ ...x, design: "chat" }));
+  }, []);
 
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read a demo-only toggle from storage after mount
@@ -282,7 +289,7 @@ export function BuilderShell() {
           <div className="flex min-h-0 flex-1">
             <div className="flex min-w-0 flex-1 flex-col">
               <div id="panel-design" role="tabpanel" aria-label="Design" hidden={tab !== "design"} className={cn("min-h-0 flex-1", tab === "design" ? "flex flex-col" : "hidden")}>
-                {visited.design ? <DesignTab active={tab === "design"} panel={panels.design} onPanelChange={setDesignPanel} /> : null}
+                {visited.design ? <DesignTab active={tab === "design"} panel={panels.design} onPanelChange={setDesignPanel} onAskAi={askAiAbout} /> : null}
               </div>
               <div id="panel-data" role="tabpanel" aria-label="Data" hidden={tab !== "data"} className={cn("min-h-0 flex-1", tab === "data" ? "flex flex-col" : "hidden")}>
                 {visited.data ? <DataTab onRepair={repair} onFocusDataset={setDataFocus} panel={panels.data} onPanelChange={setDataPanel} /> : null}
@@ -290,7 +297,15 @@ export function BuilderShell() {
             </div>
             {aiOpen && isDesktop ? (
               <aside aria-label="Data assistant" className="w-[360px] shrink-0 border-l border-border animate-fade-in xl:w-[380px]">
-                <AiPanel onClose={() => setRightPanel(null)} focusDatasetId={tab === "data" ? dataFocus : null} items={chatItems} setItems={setChatItems} onWidgetsAdded={showDesignWithChat} />
+                <AiPanel
+                  onClose={() => setRightPanel(null)}
+                  focusDatasetId={tab === "data" ? dataFocus : null}
+                  items={chatItems}
+                  setItems={setChatItems}
+                  onWidgetsAdded={showDesignWithChat}
+                  attachedWidgetIds={attachedWidgetIds}
+                  onAttachedChange={setAttachedWidgetIds}
+                />
               </aside>
             ) : null}
             {isDesktop ? <BuilderRail tab={tab} panel={rightPanel} onPanelChange={setRightPanel} /> : null}
@@ -303,7 +318,15 @@ export function BuilderShell() {
           <SheetContent side="right" className="w-[min(100vw,400px)] [&>button:last-child]:hidden">
             <SheetTitle className="sr-only">Data assistant</SheetTitle>
             <SheetDescription className="sr-only">Ask for transformations in plain language.</SheetDescription>
-            <AiPanel onClose={() => setAiOpen(false)} focusDatasetId={tab === "data" ? dataFocus : null} items={chatItems} setItems={setChatItems} onWidgetsAdded={showDesignWithChat} />
+            <AiPanel
+              onClose={() => setAiOpen(false)}
+              focusDatasetId={tab === "data" ? dataFocus : null}
+              items={chatItems}
+              setItems={setChatItems}
+              onWidgetsAdded={showDesignWithChat}
+              attachedWidgetIds={attachedWidgetIds}
+              onAttachedChange={setAttachedWidgetIds}
+            />
           </SheetContent>
         </Sheet>
       ) : null}

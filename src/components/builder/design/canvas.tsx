@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CopyIcon, DatabaseIcon, GripVerticalIcon, Trash2Icon } from "lucide-react";
+import { CopyIcon, DatabaseIcon, GripVerticalIcon, MessageSquarePlusIcon, Trash2Icon } from "lucide-react";
 import type { GridRect, Widget, WidgetType } from "@/lib/model/types";
 import { GRID_COLUMNS } from "@/lib/model/types";
 import { WIDGET_LABELS } from "@/lib/model/defaults";
@@ -31,11 +31,13 @@ export function Canvas({
   onDuplicate,
   onDelete,
   announce,
+  onAskAi,
 }: {
   onAdd: (type: WidgetType) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   announce: (msg: string) => void;
+  onAskAi?: (id: string) => void;
 }) {
   const b = useBuilder();
   const { onRequestData } = useRuntime();
@@ -89,7 +91,9 @@ export function Canvas({
     }
     e.stopPropagation();
     b.select(w.id);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // Resizes capture right away. Moves capture only once the pointer travels past the
+    // threshold, so a plain click still reaches the chart (drill-down, toggles).
+    if (mode !== "move") (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const next: Interaction = { id: w.id, mode, startX: e.clientX, startY: e.clientY, orig: w.layout, preview: w.layout, dx: 0, dy: 0, started: mode !== "move" };
     dragRef.current = next;
     setDrag(next);
@@ -102,6 +106,7 @@ export function Canvas({
     const dy = e.clientY - d.startY;
     const started = d.started || Math.hypot(dx, dy) > DRAG_THRESHOLD;
     if (!started) return;
+    if (!d.started) (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const w = widgets.find((x) => x.id === d.id);
     if (!w) return;
     const cx = Math.round(dx / stepX);
@@ -247,6 +252,26 @@ export function Canvas({
             <div className="pointer-events-auto h-full">
               <WidgetRenderer widget={w} />
             </div>
+            {onAskAi && !drag?.started ? (
+              <button
+                type="button"
+                data-no-drag
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAskAi(w.id);
+                  announce(`${w.title || WIDGET_LABELS[w.type]} added to the chat.`);
+                }}
+                title="Ask AI about this widget"
+                aria-label={`Ask AI about ${w.title || WIDGET_LABELS[w.type]}`}
+                className={cn(
+                  "absolute top-1.5 right-1.5 z-20 grid size-6 place-items-center rounded-md border border-border bg-surface/95 text-muted-foreground shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/60",
+                  selected ? "opacity-100" : "opacity-0 group-hover/widget:opacity-100 group-focus-within/widget:opacity-100",
+                )}
+              >
+                <MessageSquarePlusIcon className="size-3.5" aria-hidden />
+              </button>
+            ) : null}
             {selected && !drag?.started ? (
               <>
                 <div className="absolute -top-8 left-0 z-20 flex items-center gap-0.5 rounded-md border border-border bg-surface p-0.5 shadow-raised" data-no-drag>

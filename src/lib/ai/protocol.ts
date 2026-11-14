@@ -2,6 +2,7 @@ import type { ColumnSchema, Dashboard, Row, TransformStep } from "@/lib/model/ty
 import { resolveDataset } from "@/lib/data/resolve";
 import { isDataBound } from "@/lib/builder/store";
 import type { UsageSummary } from "./usage-types";
+import { specFromWidget } from "./plan";
 
 export type AiMode = "plan" | "auto";
 
@@ -26,7 +27,9 @@ export interface AiContext {
   selectedDatasetId: string | null;
   datasets: DatasetContext[];
   /** Widgets already on the Design canvas (empty means Design is blank). */
-  widgets: { type: string; title: string; datasetId: string | null; fields: string[] }[];
+  widgets: { id: string; type: string; title: string; datasetId: string | null; fields: string[] }[];
+  /** Widgets the user attached to this message from the canvas, as full add_widget specs with their id. */
+  attachedWidgets?: Record<string, unknown>[];
 }
 
 export interface AiChatRequest {
@@ -74,11 +77,13 @@ export interface AddWidgetAction {
 export type AiAction =
   | { type: "add_steps"; datasetId: string; steps: DraftStep[] }
   | { type: "new_dataset"; fromDatasetId: string; name: string; ref?: string; steps: DraftStep[] }
-  | AddWidgetAction;
+  | AddWidgetAction
+  | (Partial<Omit<AddWidgetAction, "type">> & { type: "update_widget"; id: string })
+  | { type: "remove_widget"; id: string };
 
 const SAMPLE_ROWS = 15;
 
-export function buildContext(d: Dashboard, selectedDatasetId: string | null): AiContext {
+export function buildContext(d: Dashboard, selectedDatasetId: string | null, attachedWidgetIds: string[] = []): AiContext {
   const used = new Map<string, Set<string>>();
   for (const w of d.widgets) {
     if (!isDataBound(w) || !w.binding.datasetId) continue;
@@ -90,7 +95,9 @@ export function buildContext(d: Dashboard, selectedDatasetId: string | null): Ai
   }
   return {
     dashboardTitle: d.name,
+    attachedWidgets: d.widgets.filter((w) => attachedWidgetIds.includes(w.id)).map((w) => ({ id: w.id, ...specFromWidget(w) })),
     widgets: d.widgets.map((w) => ({
+      id: w.id,
       type: w.type,
       title: w.title,
       datasetId: isDataBound(w) ? w.binding.datasetId : w.type === "filter" ? w.options.datasetId : null,
@@ -186,7 +193,7 @@ export function parseReply(content: string): { text: string; actions: AiAction[]
     const json = JSON.parse(last[1]) as { actions?: unknown };
     const actions = (Array.isArray(json.actions) ? json.actions : []).filter((a): a is AiAction => {
       const t = (a as { type?: string })?.type;
-      if (t === "add_widget") return true;
+      if (t === "add_widget" || t === "update_widget" || t === "remove_widget") return true;
       return (t === "add_steps" || t === "new_dataset") && Array.isArray((a as { steps?: unknown }).steps);
     });
     return { text, actions, parseError: null };

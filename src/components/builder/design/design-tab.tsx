@@ -32,7 +32,18 @@ function useIsDesktop() {
 
 export type RightPanel = "settings" | "transformations" | "source" | "chat" | null;
 
-export function DesignTab({ active, panel, onPanelChange }: { active: boolean; panel: RightPanel; onPanelChange: (p: RightPanel) => void }) {
+export function DesignTab({
+  active,
+  panel,
+  onPanelChange,
+  onAskAi,
+}: {
+  active: boolean;
+  panel: RightPanel;
+  onPanelChange: (p: RightPanel) => void;
+  /** Select a widget and attach it to the chat's context. */
+  onAskAi?: (id: string) => void;
+}) {
   const b = useBuilder();
   const isDesktop = useIsDesktop();
   const [device, setDevice] = React.useState<"desktop" | "mobile">("desktop");
@@ -42,13 +53,14 @@ export function DesignTab({ active, panel, onPanelChange }: { active: boolean; p
   const appearance = b.draft.appearance;
 
   // The inspector appears when a widget is selected (desktop) — it never navigates away.
+  // An open chat stays open, so cards can be picked and asked about one after another.
   const prevSelected = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (b.selectedId && b.selectedId !== prevSelected.current && isDesktop) {
+    if (b.selectedId && b.selectedId !== prevSelected.current && isDesktop && panel !== "chat") {
       onPanelChange("settings");
     }
     prevSelected.current = b.selectedId;
-  }, [b.selectedId, isDesktop, onPanelChange]);
+  }, [b.selectedId, isDesktop, onPanelChange, panel]);
 
   // Repair requests from widgets or the Data tab: open the inspector on that widget.
   React.useEffect(() => {
@@ -229,7 +241,20 @@ export function DesignTab({ active, panel, onPanelChange }: { active: boolean; p
                 if (e.target === e.currentTarget) b.select(null);
               }}
             >
-              <Canvas onAdd={addWidget} onDuplicate={duplicate} onDelete={remove} announce={setMessage} />
+              <Canvas
+                onAdd={addWidget}
+                onDuplicate={duplicate}
+                onDelete={remove}
+                announce={setMessage}
+                onAskAi={
+                  onAskAi
+                    ? (id) => {
+                        b.select(id);
+                        onAskAi(id);
+                      }
+                    : undefined
+                }
+              />
             </div>
           ) : (
             <div className="mx-auto max-w-[400px] px-4 py-6">

@@ -182,6 +182,10 @@ export interface DataBinding {
   limit: number | null;
   /** Ids of dashboard filter widgets that apply to this widget. */
   filterIds: string[];
+  /** Charts: other fields viewers can switch the X-axis to (the dimension is always the first option). */
+  views?: string[];
+  /** Charts: drill-down levels after the dimension. Clicking a bar or point filters to it and shows the next level. */
+  drill?: string[];
 }
 
 export type NumberFormatKind = "number" | "compact" | "currency" | "percent";

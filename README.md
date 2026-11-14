@@ -31,6 +31,13 @@ the verification step is simulated). "Explore a sample dashboard" on the landing
 Protected routes (`/workspace`, `/dashboards/*`) are guarded by `src/proxy.ts` (cookie check) plus a client
 `RequireAuth` gate. Unauthenticated visits redirect to `/sign-in?next=…` and return to the original page.
 
+### Chart toggles and drill-down
+
+Line and bar charts can offer **toggles** (the viewer switches the grouping, for example revenue by month, category or region)
+and a **drill-down path** (click a bar to filter to it and regroup by the next column, for example region, then channel,
+then product, with a breadcrumb back up). Set both in the inspector under "Viewer can switch to" and "Drill-down path".
+The sample dashboard's "Revenue by region" chart has both.
+
 ### Builder shortcuts
 
 `⌘/Ctrl+S` save · `⌘/Ctrl+Z` undo · `⇧⌘/Ctrl+Shift+Z` redo · `Alt+1` / `Alt+2` switch tabs ·
@@ -51,6 +58,8 @@ The chat icon in the builder's right-hand rail opens a chat that reads the dashb
 - **Builds dashboards**: besides transformation steps, the assistant can add KPI cards, charts, tables, text and filters
   to Design, bound to existing datasets or to ones it creates in the same reply. Filters are wired to every widget whose
   dataset has the filter's field. Widgets that reference missing columns are skipped and listed, never guessed.
+- **Edits existing widgets**: it can change or remove widgets too. In Design, each card has a small chat icon that selects
+  the card and attaches it to the next message, so "add a toggle by category" or "make this a line chart" applies to that card.
 - **Daily spend limit**: every request records OpenRouter's reported cost (tokens in and out) in `.data/ai-usage.json`
   (gitignored). The chat shows a usage bar with % used, spent, remaining and when it resets (local midnight), plus a
   per-model breakdown. Requests are refused once the day's limit is reached. The default is $1, set with

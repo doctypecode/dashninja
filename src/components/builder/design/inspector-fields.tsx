@@ -203,3 +203,44 @@ export function SwitchRow({ label, checked, onChange, disabled, hint }: { label:
   );
 }
 
+
+/** Ordered list of fields with add and remove, e.g. chart toggles or a drill path. */
+export function FieldListEditor({
+  label,
+  fields,
+  columns,
+  exclude = [],
+  onChange,
+  addLabel = "Add field",
+  ordered,
+}: {
+  label: string;
+  fields: string[];
+  columns: ColumnSchema[];
+  exclude?: (string | null)[];
+  onChange: (next: string[]) => void;
+  addLabel?: string;
+  ordered?: boolean;
+}) {
+  const available = columns.filter((c) => !fields.includes(c.name) && !exclude.includes(c.name));
+  return (
+    <div className="grid gap-1" role="group" aria-label={label}>
+      {fields.map((f, i) => {
+        const missing = !columns.some((c) => c.name === f);
+        return (
+          <div key={f} className={cn("flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs", missing ? "border-warning/40 bg-warning-muted text-warning" : "border-border bg-background")}>
+            {ordered ? <span className="font-mono text-[10px] text-muted-foreground">{i + 2}</span> : null}
+            <span className="min-w-0 flex-1 truncate font-mono">{f}</span>
+            {missing ? <span className="text-[10px]">missing</span> : null}
+            <button type="button" className="rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => onChange(fields.filter((x) => x !== f))} aria-label={`Remove ${f}`}>
+              ×
+            </button>
+          </div>
+        );
+      })}
+      {available.length ? (
+        <FieldSelect value={null} onChange={(v) => v && onChange([...fields, v])} columns={available} placeholder={addLabel} />
+      ) : null}
+    </div>
+  );
+}

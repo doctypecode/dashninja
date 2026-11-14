@@ -52,15 +52,20 @@ export interface ChatItem {
   parseError?: string | null;
   proposal?: ProposalState;
   appliedNote?: string;
+  /** Titles of canvas widgets attached to a user message. */
+  attachments?: string[];
 }
 
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
 function summarizeStats(s: ActionPlan["stats"], skipped: number) {
+  const added = [s.datasets ? plural(s.datasets, "dataset") : "", s.steps ? plural(s.steps, "step") : "", s.widgets ? plural(s.widgets, "widget") : ""].filter(Boolean);
   const parts = [
-    s.datasets ? `${s.datasets} dataset${s.datasets === 1 ? "" : "s"}` : "",
-    s.steps ? `${s.steps} step${s.steps === 1 ? "" : "s"}` : "",
-    s.widgets ? `${s.widgets} widget${s.widgets === 1 ? "" : "s"}` : "",
+    added.length ? `Added ${added.join(", ")}` : "",
+    s.updated ? `Updated ${plural(s.updated, "widget")}` : "",
+    s.removed ? `Removed ${plural(s.removed, "widget")}` : "",
   ].filter(Boolean);
-  return `Added ${parts.join(", ")}${skipped ? ` · ${skipped} item${skipped === 1 ? "" : "s"} skipped` : ""}`;
+  return `${parts.join(" · ")}${skipped ? ` · ${plural(skipped, "item")} skipped` : ""}`;
 }
 
 const PREF_KEY = "dn:ai-prefs";
@@ -88,6 +93,8 @@ export function AiPanel({
   items,
   setItems,
   onWidgetsAdded,
+  attachedWidgetIds = [],
+  onAttachedChange,
 }: {
   onClose: () => void;
   focusDatasetId?: string | null;
@@ -96,6 +103,9 @@ export function AiPanel({
   setItems: React.Dispatch<React.SetStateAction<ChatItem[]>>;
   /** Called after widgets are added, e.g. to switch to the Design tab. */
   onWidgetsAdded?: () => void;
+  /** Widgets attached from the canvas; sent as context with the next message. */
+  attachedWidgetIds?: string[];
+  onAttachedChange?: (ids: string[]) => void;
 }) {
   const b = useBuilder();
   const [input, setInput] = React.useState("");
@@ -154,8 +164,8 @@ export function AiPanel({
   const apply = React.useCallback(
     (item: ChatItem, opts: { auto?: boolean } = {}) => {
       const plan = planActions(b.draft, item.actions ?? []);
-      const { steps, datasets, widgets } = plan.stats;
-      if (!steps && !datasets && !widgets) {
+      const { steps, datasets, widgets, updated, removed } = plan.stats;
+      if (!steps && !datasets && !widgets && !updated && !removed) {
         if (!opts.auto) toast.error("Nothing in this proposal can be applied", { description: plan.items.flatMap((i) => i.errors)[0] });
         return false;
       }
@@ -167,7 +177,7 @@ export function AiPanel({
         description: summarizeStats(plan.stats, skipped),
         action: { label: "Undo", onClick: () => b.undo() },
       });
-      if (widgets && onWidgetsAdded) onWidgetsAdded();
+      if ((widgets || updated || removed) && onWidgetsAdded) onWidgetsAdded();
       return true;
     },
     [b, setItems, onWidgetsAdded],
@@ -176,21 +186,27 @@ export function AiPanel({
   const send = async (text: string) => {
     const content = text.trim();
     if (!content || pending) return;
-    const userItem: ChatItem = { id: uid("m"), role: "user", content };
+    const attached = attachedWidgetIds.filter((id) => b.draft.widgets.some((w) => w.id === id));
+    const attachedTitles = attached.map((id) => b.draft.widgets.find((w) => w.id === id)!).map((w) => w.title || WIDGET_LABELS[w.type]);
+    const userItem: ChatItem = { id: uid("m"), role: "user", content, attachments: attachedTitles };
     const history = [...items, userItem];
     setItems(history);
     setInput("");
+    onAttachedChange?.([]);
     setPending(true);
     const controller = new AbortController();
     abortRef.current = controller;
     try {
       const messages: AiChatMessage[] = history
         .filter((m) => m.role !== "error")
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.attachments?.length ? `[About widget${m.attachments.length > 1 ? "s" : ""}: ${m.attachments.join(", ")}]\n${m.content}` : m.content,
+        }));
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: prefs.model, mode: prefs.mode, messages, context: buildContext(b.draft, selectedDatasetId) }),
+        body: JSON.stringify({ model: prefs.model, mode: prefs.mode, messages, context: buildContext(b.draft, selectedDatasetId, attached) }),
         signal: controller.signal,
       });
       const json = (await res.json().catch(() => ({}))) as Partial<AiChatResponse> & { error?: string; usage?: UsageSummary };
@@ -237,8 +253,8 @@ export function AiPanel({
       </div>
 
       {/* Controls */}
-      <div className="grid gap-2 border-b border-border px-3 py-2.5">
-        <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-2 border-b border-border px-3 py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           <Select value={prefs.model} onValueChange={(model) => savePrefs({ ...prefs, model })}>
             <SelectTrigger size="sm" className="h-7 min-w-0 flex-1 text-xs" aria-label="Model">
               <SelectValue />
@@ -332,6 +348,29 @@ export function AiPanel({
           send(input);
         }}
       >
+        {attachedWidgetIds.length ? (
+          <div className="mb-1.5 flex flex-wrap gap-1" aria-label="Attached widgets">
+            {attachedWidgetIds.map((id) => {
+              const w = b.draft.widgets.find((x) => x.id === id);
+              if (!w) return null;
+              const Icon = WIDGET_ICONS[w.type];
+              return (
+                <span key={id} className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted py-0.5 pr-0.5 pl-1.5 text-[11px]">
+                  <Icon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="truncate">{w.title || WIDGET_LABELS[w.type]}</span>
+                  <button
+                    type="button"
+                    className="rounded px-1 text-muted-foreground hover:bg-surface hover:text-foreground"
+                    onClick={() => onAttachedChange?.(attachedWidgetIds.filter((x) => x !== id))}
+                    aria-label={`Remove ${w.title || WIDGET_LABELS[w.type]} from context`}
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
         <div className="flex items-end gap-1.5 rounded-lg border border-input bg-background p-1.5 focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring/30">
           <textarea
             ref={inputRef}
@@ -345,7 +384,7 @@ export function AiPanel({
             }}
             rows={2}
             disabled={limitReached}
-            placeholder={limitReached ? "Daily limit reached. Resets at midnight." : focusName ? `Ask about ${focusName}…` : "Ask about your data…"}
+            placeholder={limitReached ? "Daily limit reached. Resets at midnight." : attachedWidgetIds.length ? "Ask to change this widget, add toggles or drill-down…" : focusName ? `Ask about ${focusName}…` : "Ask about your data…"}
             aria-label="Message the data assistant"
             className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-1.5 py-1 text-[13px] outline-none placeholder:text-muted-foreground"
           />
@@ -362,7 +401,12 @@ export function AiPanel({
 function Message({ item, onApply, onDiscard }: { item: ChatItem; onApply: () => void; onDiscard: () => void }) {
   const b = useBuilder();
   if (item.role === "user") {
-    return <div className="ml-6 rounded-lg bg-muted px-3 py-2 text-[13px] whitespace-pre-wrap">{item.content}</div>;
+    return (
+      <div className="ml-6 grid gap-1 rounded-lg bg-muted px-3 py-2">
+        {item.attachments?.length ? <p className="text-[11px] text-muted-foreground">About {item.attachments.join(", ")}</p> : null}
+        <p className="text-[13px] whitespace-pre-wrap">{item.content}</p>
+      </div>
+    );
   }
   if (item.role === "error") {
     return (
@@ -454,7 +498,14 @@ function ProposalCard({ item, dashboard, onApply, onDiscard }: { item: ChatItem;
         <div className="grid gap-1.5">
           <p className="flex items-center gap-1.5 text-xs font-medium">
             <LayoutTemplateIcon className="size-3.5" aria-hidden />
-            Add {widgetItems.length} widget{widgetItems.length === 1 ? "" : "s"} to Design
+            {[
+              widgetItems.filter((w) => w.change === "add").length ? `Add ${plural(widgetItems.filter((w) => w.change === "add").length, "widget")}` : "",
+              widgetItems.filter((w) => w.change === "update").length ? `Change ${plural(widgetItems.filter((w) => w.change === "update").length, "widget")}` : "",
+              widgetItems.filter((w) => w.change === "remove").length ? `Remove ${plural(widgetItems.filter((w) => w.change === "remove").length, "widget")}` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}{" "}
+            in Design
           </p>
           <ol className="grid gap-1">
             {widgetItems.map((w, i) => {
@@ -464,6 +515,7 @@ function ProposalCard({ item, dashboard, onApply, onDiscard }: { item: ChatItem;
                   <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0">
                     <span className="block text-xs">
+                      {w.change === "update" ? <span className="text-muted-foreground">Change </span> : w.change === "remove" ? <span className="text-destructive">Remove </span> : null}
                       {w.title} <span className="text-muted-foreground">· {WIDGET_LABELS[w.widgetType]}</span>
                     </span>
                     {w.detail ? <span className="block font-mono text-[10.5px] break-words text-muted-foreground">{w.detail}</span> : null}
