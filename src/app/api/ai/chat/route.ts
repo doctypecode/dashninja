@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { isAllowedModel } from "@/lib/ai/models";
+import { AUTO_MODEL, isAllowedModel } from "@/lib/ai/models";
+import { autoCandidates } from "@/lib/ai/catalog";
 import type { AiChatRequest, AiChatResponse } from "@/lib/ai/protocol";
 import { estimateCost, recordUsage, usageSummary } from "@/lib/ai/usage";
 
@@ -69,6 +70,13 @@ export async function POST(req: Request) {
     ...body.messages.slice(-MAX_MESSAGES).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content).slice(0, 8000) })),
   ];
 
+  // "Auto" stays within the allowed providers: OpenRouter tries these in order.
+  let routing: { model: string; models?: string[] } = { model: body.model };
+  if (body.model === AUTO_MODEL.id) {
+    const candidates = await autoCandidates();
+    routing = candidates.length ? { model: candidates[0], models: candidates } : { model: "anthropic/claude-sonnet-4" };
+  }
+
   let res: Response;
   try {
     res = await fetch(OPENROUTER_URL, {
@@ -79,7 +87,7 @@ export async function POST(req: Request) {
         "X-Title": "DashNinja",
       },
       // usage.include asks OpenRouter to report the exact cost of this call.
-      body: JSON.stringify({ model: body.model, messages, temperature: 0.2, max_tokens: 6000, usage: { include: true } }),
+      body: JSON.stringify({ ...routing, messages, temperature: 0.2, max_tokens: 6000, usage: { include: true } }),
       signal: AbortSignal.timeout(90_000),
     });
   } catch (e) {

@@ -8,7 +8,7 @@ export interface AiModel {
   provider: AiProvider;
 }
 
-export const AUTO_MODEL: AiModel = { id: "openrouter/auto", name: "Auto (OpenRouter picks)", provider: "auto" };
+export const AUTO_MODEL: AiModel = { id: "openrouter/auto", name: "Auto (OpenAI, Anthropic or DeepSeek)", provider: "auto" };
 
 export const PROVIDER_LABELS: Record<AiProvider, string> = {
   auto: "Auto",

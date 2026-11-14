@@ -103,7 +103,7 @@ Modes:
 - **Auto**: valid proposals are applied immediately. Every apply is one undo step, and the toast offers Undo.
 
 Models are served through OpenRouter. The model selector lists OpenAI, DeepSeek and Anthropic models plus
-"Auto", which lets OpenRouter pick. The API key is read on the server from `OPENROUTER_API_KEY` in `.env.local`
+"Auto", which uses the newest Anthropic, OpenAI or DeepSeek model, falling back between them. The API key is read on the server from `OPENROUTER_API_KEY` in `.env.local`
 and is never sent to the browser.
 
 ### Response format the assistant must follow
@@ -161,7 +161,7 @@ Widget fields:
 | `series` | line, bar | Optional column that splits into multiple lines or bars. |
 | `columns` | table | Raw columns for an ungrouped table (omit dimension and measures). |
 | `sort`, `limit` | line, bar, table | `{ by: "dimension" or "measure", direction: "asc" or "desc" }`; `limit` keeps the top N groups. |
-| `format` | kpi, line, bar, table | `number`, `compact`, `currency` or `percent`. |
+| `format` | kpi, line, bar, table | `number`, `compact`, `currency` or `percent`. One format applies to every measure in the widget, so keep money and counts in separate widgets, or use `number` for a table that mixes them. |
 | `dateField` | kpi | Date column for the sparkline and the change versus the previous period. |
 | `field`, `control`, `defaultRange` | filter | Column to filter by; `select` for categories or `date_range` for dates; `defaultRange` is `all`, `last_3_months`, `last_6_months`, `last_12_months` or `ytd`. |
 | `content`, `size` | text | Text to show; size `sm`, `md`, `lg` or `xl`. |
