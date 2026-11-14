@@ -100,6 +100,11 @@ export function BuilderShell() {
   const setDataPanel = React.useCallback((p: RightPanel) => setPanels((x) => ({ ...x, data: p })), []);
   const setRightPanel = (p: RightPanel) => (tab === "design" ? setDesignPanel(p) : setDataPanel(p));
   const aiOpen = rightPanel === "chat";
+  // After the assistant adds widgets, show them in Design and keep the chat beside them.
+  const showDesignWithChat = React.useCallback(() => {
+    setPanels((x) => ({ ...x, design: "chat" }));
+    set({ tab: "design" });
+  }, [set]);
   const setAiOpen = (open: boolean) => setRightPanel(open ? "chat" : null);
 
   React.useEffect(() => {
@@ -285,7 +290,7 @@ export function BuilderShell() {
             </div>
             {aiOpen && isDesktop ? (
               <aside aria-label="Data assistant" className="w-[360px] shrink-0 border-l border-border animate-fade-in xl:w-[380px]">
-                <AiPanel onClose={() => setRightPanel(null)} focusDatasetId={tab === "data" ? dataFocus : null} items={chatItems} setItems={setChatItems} />
+                <AiPanel onClose={() => setRightPanel(null)} focusDatasetId={tab === "data" ? dataFocus : null} items={chatItems} setItems={setChatItems} onWidgetsAdded={showDesignWithChat} />
               </aside>
             ) : null}
             {isDesktop ? <BuilderRail tab={tab} panel={rightPanel} onPanelChange={setRightPanel} /> : null}
@@ -298,7 +303,7 @@ export function BuilderShell() {
           <SheetContent side="right" className="w-[min(100vw,400px)] [&>button:last-child]:hidden">
             <SheetTitle className="sr-only">Data assistant</SheetTitle>
             <SheetDescription className="sr-only">Ask for transformations in plain language.</SheetDescription>
-            <AiPanel onClose={() => setAiOpen(false)} focusDatasetId={tab === "data" ? dataFocus : null} items={chatItems} setItems={setChatItems} />
+            <AiPanel onClose={() => setAiOpen(false)} focusDatasetId={tab === "data" ? dataFocus : null} items={chatItems} setItems={setChatItems} onWidgetsAdded={showDesignWithChat} />
           </SheetContent>
         </Sheet>
       ) : null}

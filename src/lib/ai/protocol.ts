@@ -1,6 +1,7 @@
 import type { ColumnSchema, Dashboard, Row, TransformStep } from "@/lib/model/types";
 import { resolveDataset } from "@/lib/data/resolve";
 import { isDataBound } from "@/lib/builder/store";
+import type { UsageSummary } from "./usage-types";
 
 export type AiMode = "plan" | "auto";
 
@@ -24,6 +25,8 @@ export interface AiContext {
   dashboardTitle: string;
   selectedDatasetId: string | null;
   datasets: DatasetContext[];
+  /** Widgets already on the Design canvas (empty means Design is blank). */
+  widgets: { type: string; title: string; datasetId: string | null; fields: string[] }[];
 }
 
 export interface AiChatRequest {
@@ -36,14 +39,42 @@ export interface AiChatRequest {
 export interface AiChatResponse {
   content: string;
   model: string;
+  /** What this one reply cost. */
+  cost?: { usd: number; promptTokens: number; completionTokens: number; estimated: boolean };
+  usage?: UsageSummary;
 }
 
 /** Step as the model writes it: no id/enabled. */
 export type DraftStep = Omit<TransformStep, "id" | "enabled">;
 
+export interface AddWidgetAction {
+  type: "add_widget";
+  widget: "kpi" | "line" | "bar" | "table" | "text" | "filter";
+  title?: string;
+  /** Dataset id, dataset name, or the `ref` of a new_dataset earlier in the same reply. */
+  dataset?: string;
+  dimension?: string;
+  dateGrain?: string;
+  measures?: { field: string; agg: string; label?: string }[];
+  series?: string;
+  columns?: string[];
+  sort?: { by: string; direction: string };
+  limit?: number;
+  format?: string;
+  dateField?: string;
+  field?: string;
+  control?: string;
+  defaultRange?: string;
+  content?: string;
+  width?: number;
+  height?: number;
+  [key: string]: unknown;
+}
+
 export type AiAction =
   | { type: "add_steps"; datasetId: string; steps: DraftStep[] }
-  | { type: "new_dataset"; fromDatasetId: string; name: string; steps: DraftStep[] };
+  | { type: "new_dataset"; fromDatasetId: string; name: string; ref?: string; steps: DraftStep[] }
+  | AddWidgetAction;
 
 const SAMPLE_ROWS = 15;
 
@@ -59,6 +90,16 @@ export function buildContext(d: Dashboard, selectedDatasetId: string | null): Ai
   }
   return {
     dashboardTitle: d.name,
+    widgets: d.widgets.map((w) => ({
+      type: w.type,
+      title: w.title,
+      datasetId: isDataBound(w) ? w.binding.datasetId : w.type === "filter" ? w.options.datasetId : null,
+      fields: isDataBound(w)
+        ? [w.binding.dimension, w.binding.series, ...w.binding.columns, ...w.binding.measures.map((m) => `${m.agg}(${m.field})`)].filter((x): x is string => Boolean(x))
+        : w.type === "filter" && w.options.field
+          ? [w.options.field]
+          : [],
+    })),
     selectedDatasetId,
     datasets: d.datasets.map((ds) => {
       const result = resolveDataset(d, ds);
@@ -145,6 +186,7 @@ export function parseReply(content: string): { text: string; actions: AiAction[]
     const json = JSON.parse(last[1]) as { actions?: unknown };
     const actions = (Array.isArray(json.actions) ? json.actions : []).filter((a): a is AiAction => {
       const t = (a as { type?: string })?.type;
+      if (t === "add_widget") return true;
       return (t === "add_steps" || t === "new_dataset") && Array.isArray((a as { steps?: unknown }).steps);
     });
     return { text, actions, parseError: null };

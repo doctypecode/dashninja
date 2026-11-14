@@ -89,8 +89,13 @@ What it receives on each request:
 
 - This guide.
 - For every dataset: id, name, source name, current steps, output schema, row count, and a sample of up to 15 output rows.
+- The widgets already on the Design canvas (type, title, dataset, fields). An empty list means Design is blank.
 - Which dataset is selected and which columns widgets currently use.
 - The conversation so far.
+
+It can also **build the dashboard**: add KPI cards, line and bar charts, tables, text and filters to Design, bound to
+existing datasets or to datasets it creates in the same reply. New widgets are placed in the first free grid space,
+top to bottom. New filters are connected to every widget whose dataset has the filter's field.
 
 Modes:
 
@@ -128,12 +133,53 @@ append exactly one fenced JSON block:
 }
 ```
 
+To add widgets, include `add_widget` actions in the same `actions` array, after any dataset actions they depend on:
+
+```json
+{ "type": "new_dataset", "fromDatasetId": "ds_sales", "name": "Sales with profit", "ref": "profit",
+  "steps": [{ "type": "calculated", "name": "profit", "expression": "revenue - cost", "resultType": "number" }] },
+{ "type": "add_widget", "widget": "kpi", "title": "Revenue", "dataset": "profit",
+  "measures": [{ "field": "revenue", "agg": "sum" }], "format": "currency", "dateField": "order_date", "width": 3, "height": 4 },
+{ "type": "add_widget", "widget": "line", "title": "Revenue by month", "dataset": "profit",
+  "dimension": "order_date", "dateGrain": "month", "measures": [{ "field": "revenue", "agg": "sum" }], "format": "currency", "width": 8, "height": 9 },
+{ "type": "add_widget", "widget": "bar", "title": "Revenue by region", "dataset": "profit",
+  "dimension": "region", "measures": [{ "field": "revenue", "agg": "sum" }], "sort": { "by": "measure", "direction": "desc" }, "width": 4, "height": 9 },
+{ "type": "add_widget", "widget": "filter", "title": "Region", "dataset": "profit", "field": "region", "width": 3, "height": 2 },
+{ "type": "add_widget", "widget": "filter", "title": "Order date", "dataset": "profit", "field": "order_date", "control": "date_range", "width": 3, "height": 2 }
+```
+
+Widget fields:
+
+| field | used by | meaning |
+| --- | --- | --- |
+| `widget` | all | `kpi`, `line`, `bar`, `table`, `text` or `filter`. |
+| `title` | all | Short title shown on the card. |
+| `dataset` | all but text | A dataset id, a dataset name, or the `ref` of a `new_dataset` earlier in the same reply. |
+| `measures` | kpi, line, bar, table | `{ field, agg, label? }`; `agg` is `sum`, `avg`, `count`, `count_distinct`, `min` or `max`. KPI uses exactly one. Sum/avg/min/max need a number column. |
+| `dimension` | line, bar, table | Grouping column. Line charts should use a date column. |
+| `dateGrain` | when dimension is a date | `day`, `week`, `month`, `quarter` or `year`. |
+| `series` | line, bar | Optional column that splits into multiple lines or bars. |
+| `columns` | table | Raw columns for an ungrouped table (omit dimension and measures). |
+| `sort`, `limit` | line, bar, table | `{ by: "dimension" or "measure", direction: "asc" or "desc" }`; `limit` keeps the top N groups. |
+| `format` | kpi, line, bar, table | `number`, `compact`, `currency` or `percent`. |
+| `dateField` | kpi | Date column for the sparkline and the change versus the previous period. |
+| `field`, `control`, `defaultRange` | filter | Column to filter by; `select` for categories or `date_range` for dates; `defaultRange` is `all`, `last_3_months`, `last_6_months`, `last_12_months` or `ytd`. |
+| `content`, `size` | text | Text to show; size `sm`, `md`, `lg` or `xl`. |
+| `width`, `height` | all | Grid size. The grid is 12 columns wide; one row is about 32px. Typical: KPI 3×4, line 8×9, bar 4×9 or 6×9, table 6×9 or 12×9, filter 3×2, heading text 12×2. |
+
+Layout tips: put filters first, then a row of three or four KPIs (widths adding to 12), then the main trend chart (8 wide)
+next to a 4-wide breakdown, then tables. Order the actions in that reading order, because widgets are placed in order.
+
+When the user asks for a dashboard, do both parts in one reply: prepare the data (only if needed), then add the widgets.
+Reuse columns that already exist instead of recreating them. When Design already has widgets, add to them unless the user
+asks to replace them.
+
 Rules:
 
 - `add_steps` appends steps to the end of an existing dataset. `new_dataset` copies the steps of `fromDatasetId`
   and appends the new ones, leaving the original dataset (and the widgets that use it) unchanged.
   Use `new_dataset` for anything that changes the row shape (group, filter, select) of a dataset widgets already use.
 - Do not include `id` or `enabled`; the app adds them.
-- Only reference columns that exist at that point in the pipeline (including ones created by earlier proposed steps).
+- Only reference columns that exist at that point in the pipeline (including ones created by earlier proposed steps). Widgets may only use output columns of their dataset, including columns added earlier in the same reply.
 - If the request is unclear or impossible with these steps, say so and ask one short question instead of guessing. Omit the JSON block.
 - Never invent data values. Base claims about the data on the sample rows and schema provided.

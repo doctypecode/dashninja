@@ -3,6 +3,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { isAllowedModel } from "@/lib/ai/models";
 import type { AiChatRequest, AiChatResponse } from "@/lib/ai/protocol";
+import { estimateCost, recordUsage, usageSummary } from "@/lib/ai/usage";
 
 const OPENROUTER_URL = `${process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1"}/chat/completions`;
 const MAX_MESSAGES = 20;
@@ -43,6 +44,14 @@ export async function POST(req: Request) {
   if (!body?.model || !isAllowedModel(body.model)) return error(400, "Pick an OpenAI, DeepSeek or Anthropic model, or Auto.");
   if (!Array.isArray(body.messages) || !body.messages.length) return error(400, "Send at least one message.");
 
+  const before = await usageSummary();
+  if (before.remainingUsd <= 0) {
+    return NextResponse.json(
+      { error: `You've used today's $${before.limitUsd.toFixed(2)} AI limit. It resets at midnight.`, code: "limit_reached", usage: before },
+      { status: 429 },
+    );
+  }
+
   let context = JSON.stringify(body.context ?? {});
   if (context.length > MAX_CONTEXT_CHARS) context = context.slice(0, MAX_CONTEXT_CHARS) + "…(truncated)";
 
@@ -69,7 +78,8 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
         "X-Title": "DashNinja",
       },
-      body: JSON.stringify({ model: body.model, messages, temperature: 0.2 }),
+      // usage.include asks OpenRouter to report the exact cost of this call.
+      body: JSON.stringify({ model: body.model, messages, temperature: 0.2, max_tokens: 6000, usage: { include: true } }),
       signal: AbortSignal.timeout(90_000),
     });
   } catch (e) {
@@ -80,12 +90,24 @@ export async function POST(req: Request) {
     model?: string;
     choices?: { message?: { content?: string } }[];
     error?: { message?: string };
+    usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
   } | null;
   if (!res.ok || !json) {
     const msg = json?.error?.message ?? `OpenRouter responded ${res.status}.`;
     return error(res.status === 401 ? 502 : res.status >= 500 ? 502 : res.status, res.status === 401 ? "OpenRouter rejected the API key. Check OPENROUTER_API_KEY." : msg);
   }
   const content = json.choices?.[0]?.message?.content ?? "";
-  const out: AiChatResponse = { content, model: json.model ?? body.model };
+  const servedModel = json.model ?? body.model;
+  const promptTokens = json.usage?.prompt_tokens ?? 0;
+  const completionTokens = json.usage?.completion_tokens ?? 0;
+  const reported = typeof json.usage?.cost === "number";
+  const costUsd = reported ? json.usage!.cost! : await estimateCost(servedModel, promptTokens, completionTokens);
+  await recordUsage({ model: servedModel, costUsd, promptTokens, completionTokens, estimated: !reported });
+  const out: AiChatResponse = {
+    content,
+    model: servedModel,
+    cost: { usd: costUsd, promptTokens, completionTokens, estimated: !reported },
+    usage: await usageSummary(),
+  };
   return NextResponse.json(out);
 }

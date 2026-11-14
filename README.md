@@ -48,6 +48,13 @@ The chat icon in the builder's right-hand rail opens a chat that reads the dashb
 - **Auto mode**: valid proposals are applied immediately as one undoable change.
 - Proposals are validated in the browser by running them through the real pipeline. Invalid steps can't be applied,
   and changes that would break widget bindings are flagged.
+- **Builds dashboards**: besides transformation steps, the assistant can add KPI cards, charts, tables, text and filters
+  to Design, bound to existing datasets or to ones it creates in the same reply. Filters are wired to every widget whose
+  dataset has the filter's field. Widgets that reference missing columns are skipped and listed, never guessed.
+- **Daily spend limit**: every request records OpenRouter's reported cost (tokens in and out) in `.data/ai-usage.json`
+  (gitignored). The chat shows a usage bar with % used, spent, remaining and when it resets (local midnight), plus a
+  per-model breakdown. Requests are refused once the day's limit is reached. The default is \$1, set with
+  `AI_DAILY_LIMIT_USD`. The check runs before each request, so the last request of a day can go slightly over.
 
 Setup: copy `.env.example` to `.env.local` and set `OPENROUTER_API_KEY`, then restart the server. The key is only
 read by the server route `src/app/api/ai/chat/route.ts`, which requires a signed-in session. Without a key, the panel
