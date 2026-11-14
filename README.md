@@ -38,7 +38,7 @@ arrow keys move the selected widget (Shift+arrows resize) · `⌘/Ctrl+D` duplic
 
 ## AI data assistant
 
-"Ask AI" in the builder top bar opens a chat that reads the dashboard's datasets (column names, types and up to
+The chat icon in the builder's right-hand rail opens a chat that reads the dashboard's datasets (column names, types and up to
 15 sample rows each) and proposes transformation steps.
 
 - **Models**: OpenAI, DeepSeek and Anthropic models through OpenRouter, plus "Auto" (`openrouter/auto`).

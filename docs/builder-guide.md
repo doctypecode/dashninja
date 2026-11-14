@@ -82,7 +82,7 @@ When proposing steps, prefer adding new columns or a new dataset over renaming o
 
 ## The AI data assistant
 
-The assistant panel in the builder (the "Ask AI" button in the top bar) can read the dashboard's datasets and propose
+The assistant panel in the builder (the chat icon in the right-hand rail) can read the dashboard's datasets and propose
 transformation steps.
 
 What it receives on each request:

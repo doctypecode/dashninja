@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   CopyIcon,
   MonitorIcon,
-  PanelRightCloseIcon,
   PanelRightOpenIcon,
   Redo2Icon,
   SmartphoneIcon,
@@ -31,11 +30,12 @@ function useIsDesktop() {
   return useMediaQuery("(min-width: 1024px)");
 }
 
-export function DesignTab({ active }: { active: boolean }) {
+export type RightPanel = "settings" | "chat" | null;
+
+export function DesignTab({ active, panel, onPanelChange }: { active: boolean; panel: RightPanel; onPanelChange: (p: RightPanel) => void }) {
   const b = useBuilder();
   const isDesktop = useIsDesktop();
   const [device, setDevice] = React.useState<"desktop" | "mobile">("desktop");
-  const [inspectorOpen, setInspectorOpen] = React.useState(true);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [message, setMessage] = React.useState("");
   const canvasScrollRef = React.useRef<HTMLDivElement>(null);
@@ -45,22 +45,24 @@ export function DesignTab({ active }: { active: boolean }) {
   const prevSelected = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (b.selectedId && b.selectedId !== prevSelected.current && isDesktop) {
-      setInspectorOpen(true);
+      onPanelChange("settings");
     }
     prevSelected.current = b.selectedId;
-  }, [b.selectedId, isDesktop]);
+  }, [b.selectedId, isDesktop, onPanelChange]);
 
   // Repair requests from widgets or the Data tab: open the inspector on that widget.
   React.useEffect(() => {
     if (!b.repairId) return;
     if (isDesktop) {
+      onPanelChange("settings");
+    } else {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setInspectorOpen(true);
-    } else setDrawerOpen(true);
+      setDrawerOpen(true);
+    }
     requestAnimationFrame(() => {
       document.querySelector(`[data-widget-id="${b.repairId}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
-  }, [b.repairId, isDesktop]);
+  }, [b.repairId, isDesktop, onPanelChange]);
 
   const addWidget = React.useCallback(
     (type: WidgetType) => {
@@ -148,7 +150,7 @@ export function DesignTab({ active }: { active: boolean }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [active, b, duplicate, remove]);
 
-  const showInspectorPanel = isDesktop && inspectorOpen;
+  const showInspectorPanel = isDesktop && panel === "settings";
   const bg = appearance.background;
   const maxW = appearance.maxWidth === "narrow" ? "max-w-4xl" : appearance.maxWidth === "wide" ? "max-w-7xl" : "max-w-none";
 
@@ -203,13 +205,7 @@ export function DesignTab({ active }: { active: boolean }) {
           <span className="hidden font-mono text-[11px] text-muted-foreground xl:inline">
             {b.draft.widgets.length} widget{b.draft.widgets.length === 1 ? "" : "s"} · 12-col grid
           </span>
-          {isDesktop ? (
-            <Hint label={inspectorOpen ? "Hide inspector" : "Show inspector"}>
-              <Button variant="ghost" size="icon-sm" onClick={() => setInspectorOpen((o) => !o)} aria-label={inspectorOpen ? "Hide inspector" : "Show inspector"} aria-expanded={inspectorOpen} aria-controls="inspector">
-                {inspectorOpen ? <PanelRightCloseIcon /> : <PanelRightOpenIcon />}
-              </Button>
-            </Hint>
-          ) : (
+          {isDesktop ? null : (
             <Button variant="secondary" size="sm" onClick={() => setDrawerOpen(true)}>
               <PanelRightOpenIcon /> {b.selected ? "Edit widget" : "Settings"}
             </Button>
@@ -259,7 +255,7 @@ export function DesignTab({ active }: { active: boolean }) {
             aria-label={b.selected ? "Widget inspector" : "Dashboard settings"}
             className="w-[320px] shrink-0 overflow-y-auto border-l border-border bg-surface animate-in slide-in-from-right-2 fade-in-0 duration-200"
           >
-            <Inspector onClose={() => setInspectorOpen(false)} />
+            <Inspector onClose={() => onPanelChange(null)} />
           </aside>
         ) : null}
       </div>
