@@ -36,6 +36,26 @@ Protected routes (`/workspace`, `/dashboards/*`) are guarded by `src/proxy.ts` (
 `⌘/Ctrl+S` save · `⌘/Ctrl+Z` undo · `⇧⌘/Ctrl+Shift+Z` redo · `Alt+1` / `Alt+2` switch tabs ·
 arrow keys move the selected widget (Shift+arrows resize) · `⌘/Ctrl+D` duplicate · `Delete` remove · `Esc` deselect / exit preview.
 
+## AI data assistant
+
+"Ask AI" in the builder top bar opens a chat that reads the dashboard's datasets (column names, types and up to
+15 sample rows each) and proposes transformation steps.
+
+- **Models**: OpenAI, DeepSeek and Anthropic models through OpenRouter, plus "Auto" (`openrouter/auto`).
+  The list is fetched live from OpenRouter's public catalog, with a built-in fallback.
+- **Plan mode**: proposals show each step with a before/after preview (rows, added and removed columns, errors).
+  Nothing changes until you press Apply.
+- **Auto mode**: valid proposals are applied immediately as one undoable change.
+- Proposals are validated in the browser by running them through the real pipeline. Invalid steps can't be applied,
+  and changes that would break widget bindings are flagged.
+
+Setup: copy `.env.example` to `.env.local` and set `OPENROUTER_API_KEY`, then restart the server. The key is only
+read by the server route `src/app/api/ai/chat/route.ts`, which requires a signed-in session. Without a key, the panel
+shows a "not configured" message.
+
+[`docs/builder-guide.md`](docs/builder-guide.md) explains how the builder works (sources, datasets, steps, bindings).
+The assistant receives it as its system context, so keep it in sync when steps or the model change.
+
 ## Demo adapters and what needs configuration
 
 Everything runs in the browser today. Each integration sits behind one function so a real backend can be swapped in
@@ -47,6 +67,7 @@ without touching UI code.
 | Dashboard storage | Local repository: dashboards stored per user in `localStorage` with simulated latency. "Simulate save failure" in the Save menu exercises the failure and retry path. | `getRepository()` in `src/lib/api/repository.ts` |
 | Google Sheets | Demo connector: no Google calls. Connect, sheet picking, token expiry and reconnect are simulated against sample spreadsheets. Needs a Google OAuth client and a server route to read sheets. | `getGoogleSheetsConnector()` in `src/lib/connectors/google-sheets.ts` |
 | CSV / Excel | Real parsing in the browser (papaparse; exceljs loaded on demand). Delimiter, header row and type detection included. Large files would benefit from server-side parsing. | `src/lib/connectors/csv.ts`, `excel.ts` |
+| AI assistant | Real OpenRouter calls when `OPENROUTER_API_KEY` is set in `.env.local`. | `src/app/api/ai/chat/route.ts` |
 | Scheduled refresh | Not implemented; refresh is manual. Needs a server job. | n/a |
 
 ## Code layout

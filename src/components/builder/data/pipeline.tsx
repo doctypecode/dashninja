@@ -46,21 +46,30 @@ export const STEP_ICONS: Record<TransformStep["type"], React.ComponentType<{ cla
   group: GroupIcon,
 };
 
-const ORDER: TransformStep["type"][] = ["rename", "select", "cast", "filter", "fill_empty", "calculated", "group"];
+export const STEP_ORDER: TransformStep["type"][] = ["rename", "select", "cast", "filter", "fill_empty", "calculated", "group"];
 
 export function Pipeline({
   dataset,
   results,
   sourceColumns,
   outputColumns,
+  editing: editingProp,
+  onEditingChange,
+  hideTitle,
 }: {
   dataset: Dataset;
   results: StepResult[];
   sourceColumns: ColumnSchema[];
   outputColumns: ColumnSchema[];
+  /** Controlled: id of the step whose editor is open. */
+  editing?: string | null;
+  onEditingChange?: (id: string | null) => void;
+  hideTitle?: boolean;
 }) {
   const b = useBuilder();
-  const [editing, setEditing] = React.useState<string | null>(null);
+  const [editingLocal, setEditingLocal] = React.useState<string | null>(null);
+  const editing = editingProp !== undefined ? editingProp : editingLocal;
+  const setEditing = (id: string | null) => (onEditingChange ? onEditingChange(id) : setEditingLocal(id));
   const [dragId, setDragId] = React.useState<string | null>(null);
   const steps = dataset.steps;
 
@@ -85,8 +94,8 @@ export function Pipeline({
 
   return (
     <div className="grid content-start gap-2">
-      <div className="flex items-center justify-between">
-        <h3 className="text-[13px] font-medium">Transformations</h3>
+      <div className={cn("flex items-center", hideTitle ? "justify-end" : "justify-between")}>
+        {hideTitle ? null : <h3 className="text-[13px] font-medium">Transformations</h3>}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="secondary" size="xs">
@@ -94,7 +103,7 @@ export function Pipeline({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            {ORDER.map((t) => {
+            {STEP_ORDER.map((t) => {
               const Icon = STEP_ICONS[t];
               return (
                 <DropdownMenuItem key={t} onSelect={() => add(t)}>

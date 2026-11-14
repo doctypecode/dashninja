@@ -25,17 +25,10 @@ import { cn } from "@/lib/utils";
 import { Canvas } from "./canvas";
 import { WidgetPalette } from "./widget-palette";
 import { Inspector } from "./inspector";
+import { useMediaQuery } from "@/lib/use-media-query";
 
 function useIsDesktop() {
-  return React.useSyncExternalStore(
-    (cb) => {
-      const mq = window.matchMedia("(min-width: 1024px)");
-      mq.addEventListener("change", cb);
-      return () => mq.removeEventListener("change", cb);
-    },
-    () => window.matchMedia("(min-width: 1024px)").matches,
-    () => true,
-  );
+  return useMediaQuery("(min-width: 1024px)");
 }
 
 export function DesignTab({ active }: { active: boolean }) {

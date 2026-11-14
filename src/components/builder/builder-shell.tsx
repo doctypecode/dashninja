@@ -15,6 +15,7 @@ import {
   Loader2Icon,
   MonitorIcon,
   SmartphoneIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { useBuilder } from "@/lib/builder/store";
 import { useSaveDashboard } from "@/lib/api/queries";
@@ -46,6 +47,9 @@ import { cn } from "@/lib/utils";
 import { SaveStatusIndicator } from "./save-status";
 import { DesignTab } from "./design/design-tab";
 import { DataTab } from "./data/data-tab";
+import { AiPanel } from "./ai/ai-panel";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { useMediaQuery } from "@/lib/use-media-query";
 
 export type BuilderTab = "design" | "data";
 
@@ -79,6 +83,9 @@ export function BuilderShell() {
   const [leaveOpen, setLeaveOpen] = React.useState(false);
   const [visited, setVisited] = React.useState<Record<BuilderTab, boolean>>({ design: tab === "design", data: tab === "data" });
   const [simulateFailure, setSimulateFailure] = React.useState(false);
+  const [aiOpen, setAiOpen] = React.useState(false);
+  const [dataFocus, setDataFocus] = React.useState<string | null>(null);
+  const aiDocked = useMediaQuery("(min-width: 1280px)");
 
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- read a demo-only toggle from storage after mount
@@ -199,6 +206,14 @@ export function BuilderShell() {
 
           {/* Right: dashboard-level actions */}
           <div className="flex items-center justify-end gap-1.5">
+            {!preview ? (
+              <Hint label="Ask the data assistant">
+                <Button variant={aiOpen ? "secondary" : "ghost"} size="sm" onClick={() => setAiOpen((o) => !o)} aria-pressed={aiOpen} aria-label="Ask AI">
+                  <SparklesIcon />
+                  <span className="hidden md:inline">Ask AI</span>
+                </Button>
+              </Hint>
+            ) : null}
             <Button variant={preview ? "secondary" : "ghost"} size="sm" onClick={() => set({ preview: !preview })} aria-pressed={preview}>
               {preview ? <EyeOffIcon /> : <EyeIcon />}
               <span className="hidden sm:inline">{preview ? "Exit preview" : "Preview"}</span>
@@ -245,16 +260,33 @@ export function BuilderShell() {
         {preview ? (
           <PreviewMode />
         ) : (
-          <>
-            <div id="panel-design" role="tabpanel" aria-label="Design" hidden={tab !== "design"} className={cn("min-h-0 flex-1", tab === "design" ? "flex flex-col" : "hidden")}>
-              {visited.design ? <DesignTab active={tab === "design"} /> : null}
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div id="panel-design" role="tabpanel" aria-label="Design" hidden={tab !== "design"} className={cn("min-h-0 flex-1", tab === "design" ? "flex flex-col" : "hidden")}>
+                {visited.design ? <DesignTab active={tab === "design"} /> : null}
+              </div>
+              <div id="panel-data" role="tabpanel" aria-label="Data" hidden={tab !== "data"} className={cn("min-h-0 flex-1 overflow-y-auto", tab !== "data" && "hidden")}>
+                {visited.data ? <DataTab onRepair={repair} onFocusDataset={setDataFocus} /> : null}
+              </div>
             </div>
-            <div id="panel-data" role="tabpanel" aria-label="Data" hidden={tab !== "data"} className={cn("min-h-0 flex-1 overflow-y-auto", tab !== "data" && "hidden")}>
-              {visited.data ? <DataTab onRepair={repair} /> : null}
-            </div>
-          </>
+            {aiOpen && aiDocked ? (
+              <aside aria-label="Data assistant" className="w-[380px] shrink-0 border-l border-border animate-fade-in">
+                <AiPanel onClose={() => setAiOpen(false)} focusDatasetId={tab === "data" ? dataFocus : null} />
+              </aside>
+            ) : null}
+          </div>
         )}
       </div>
+
+      {!aiDocked && !preview ? (
+        <Sheet open={aiOpen} onOpenChange={setAiOpen}>
+          <SheetContent side="right" className="w-[min(100vw,400px)] [&>button:last-child]:hidden">
+            <SheetTitle className="sr-only">Data assistant</SheetTitle>
+            <SheetDescription className="sr-only">Ask for transformations in plain language.</SheetDescription>
+            <AiPanel onClose={() => setAiOpen(false)} focusDatasetId={tab === "data" ? dataFocus : null} />
+          </SheetContent>
+        </Sheet>
+      ) : null}
 
       <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
         <AlertDialogContent>

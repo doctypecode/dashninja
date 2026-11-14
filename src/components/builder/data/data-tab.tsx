@@ -16,12 +16,12 @@ import { WIDGET_LABELS } from "@/lib/model/defaults";
 import { AddSourceDialog } from "./add-source-dialog";
 import { SourceDetails, StatusBadge } from "./source-details";
 import { SourceIcon } from "./source-icon";
-import { Pipeline } from "./pipeline";
+import { TransformWorkspace } from "./transform-rail";
 import { DataPreview } from "./data-preview";
 
 type Kind = "csv" | "excel" | "google-sheets" | "sample";
 
-export function DataTab({ onRepair }: { onRepair: (widgetId: string) => void }) {
+export function DataTab({ onRepair, onFocusDataset }: { onRepair: (widgetId: string) => void; onFocusDataset?: (id: string | null) => void }) {
   const b = useBuilder();
   const { issues } = useRuntime();
   const sources = b.draft.sources;
@@ -32,6 +32,8 @@ export function DataTab({ onRepair }: { onRepair: (widgetId: string) => void }) 
   const source = sources.find((s) => s.id === sourceId) ?? sources[0] ?? null;
   const datasets = b.draft.datasets.filter((d) => d.sourceId === source?.id);
   const dataset = datasets.find((d) => d.id === datasetId) ?? datasets[0] ?? null;
+  const focusedId = dataset?.id ?? null;
+  React.useEffect(() => onFocusDataset?.(focusedId), [focusedId, onFocusDataset]);
 
   // Tell the user when a data change breaks a binding, with a one-click undo.
   const prevIssueKeys = React.useRef<Set<string>>(new Set(issues.map((i) => `${i.widgetId}:${i.role}:${i.field}`)));
@@ -271,13 +273,10 @@ function DatasetPanel({ dataset, onDuplicated, onDeleted }: { dataset: Dataset; 
           </Button>
         </div>
       </div>
-      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
-        <Pipeline dataset={dataset} results={result.steps} sourceColumns={sourceTable.columns} outputColumns={result.table.columns} />
-        <div className="grid min-w-0 content-start gap-2">
-          <h3 className="text-[13px] font-medium">Preview</h3>
-          <DataPreview table={result.table} />
-        </div>
-      </div>
+      <TransformWorkspace dataset={dataset} results={result.steps} sourceColumns={sourceTable.columns} outputColumns={result.table.columns}>
+        <h3 className="text-[13px] font-medium">Preview</h3>
+        <DataPreview table={result.table} />
+      </TransformWorkspace>
     </div>
   );
 }
